@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/arloliu/go-secs/secs2"
+	"github.com/arloliu/go-secs/v2/secs2"
 )
 
 // scalar renders a single-value item as its plain value, and anything else as compact SML.

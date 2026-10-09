@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arloliu/go-secs/secs2"
-	"github.com/arloliu/go-secs/sml"
+	"github.com/arloliu/go-secs/v2/secs2"
+	"github.com/arloliu/go-secs/v2/sml"
 )
 
 // Direction is the sending side of a message.
@@ -124,8 +124,6 @@ type Reader struct {
 func NewReader(r io.Reader, loc *time.Location) *Reader {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1<<20), 64<<20)
-	// The EAP quotes ASCII items with single quotes; go-secs keeps this as a process-wide setting.
-	secs2.UseASCIISingleQuote()
 
 	return &Reader{sc: sc, loc: loc, pending: map[string]*Message{}}
 }
@@ -261,7 +259,7 @@ func (r *Reader) finishBody() {
 	r.lines = r.lines[:0]
 	text := sb.String()
 	m.Body = text[strings.IndexByte(text, '\n')+1:]
-	msgs, err := sml.ParseHSMS(text)
+	msgs, err := sml.Parse(text)
 	switch {
 	case err != nil:
 		m.Flags |= FlagParseFailed
@@ -270,7 +268,10 @@ func (r *Reader) finishBody() {
 		m.Flags |= FlagParseFailed
 		m.ParseErr = fmt.Errorf("body parsed into %d messages", len(msgs))
 	default:
-		m.Item = msgs[0].Item()
+		if m.Item, err = msgs[0].Item(); err != nil {
+			m.Flags |= FlagParseFailed
+			m.ParseErr = err
+		}
 	}
 	r.out = append(r.out, m)
 }

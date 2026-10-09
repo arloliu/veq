@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arloliu/go-secs/secs2"
+	"github.com/arloliu/go-secs/v2/secs2"
 
 	"github.com/arloliu/veq/internal/eapsml"
 )
