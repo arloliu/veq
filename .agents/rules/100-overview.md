@@ -10,6 +10,7 @@ The design is in `docs/specs/ve/`; the roadmap is `docs/ROADMAP.md`.
 | Path | Scope |
 |---|---|
 | `cmd/logcat` | lists the GEM identifiers and data formats observable in EAP SML logs |
+| `cmd/eapconv` | converts EAP SML logs into tracepack captures, one per equipment connection |
 | `internal/eapsml` | reads an EAP's SML text log into messages and pairs primaries with replies |
 | `docs/` | specs, plans and guides under `450-doc-lifecycle.md` |
 | `scripts/` | repository checks (`docs-check.py`) |
@@ -17,14 +18,14 @@ The design is in `docs/specs/ve/`; the roadmap is `docs/ROADMAP.md`.
 | `tmp/` | local scratch; gitignored |
 
 Create a package directory when its first code lands, not before.
-Planned components (runtime, profile schema, evaluator, registry, harness, `cmd/eapconv`) are described in `docs/specs/ve/`,
+Planned components (runtime, profile schema, evaluator, registry, harness) are described in `docs/specs/ve/`,
 not pre-created.
 
 ## Dependencies
 
 - SECS-II, HSMS and SML come from `github.com/arloliu/go-secs`.
 - Recorded traffic is stored as tracepack, the nested module `github.com/arloliu/go-secs/tracepack`,
-  pinned to a pseudo-version of go-secs `main` until a tagged release has what veq needs.
+  pinned exactly at a tagged release (V-14); read its changelog before every upgrade.
 - Runtime deps are intentionally minimal — check `go.mod` before adding any.
   Prefer stdlib.
 - The module's minimum Go version is the `go` directive in `go.mod`; `mise.toml` pins the development toolchain.

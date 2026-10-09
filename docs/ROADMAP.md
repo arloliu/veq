@@ -12,7 +12,7 @@ This file lists the milestones and links every finite document that is `active` 
 |---|---|---|
 | Repository bootstrap: rules, docs check, first EAP log tooling | done | — |
 | Design re-derived from evidence: goals, pilot gates, architecture | pending | [ve-design-rederivation](plans/ve-design-rederivation.md) (draft); input: [P1 generation service](specs/ve/proposals/p1-generation-service.md) (active) |
-| EAP log to tracepack converter (`cmd/eapconv`) | pending | — |
+| EAP log to tracepack converter (`cmd/eapconv`) | done | — |
 
 Milestones after these are set by the re-derivation.
 

@@ -1,5 +1,9 @@
+github.com/arloliu/go-secs/tracepack v0.2.0 h1:nqZPoCd3Z4rDPp8gacNms57q6XITk/vaE/fg8NC6jJw=
+github.com/arloliu/go-secs/tracepack v0.2.0/go.mod h1:FEWQnfAMaRwt3X2piJYjrlsNUhxIdK44rL7BUMykvqc=
 github.com/arloliu/go-secs/v2 v2.6.0 h1:Tgqy+Oob1GQ9y3UR4r7/W2OqOZiOWFC1w/YJs5CK5dk=
 github.com/arloliu/go-secs/v2 v2.6.0/go.mod h1:SEbNIic8oZ6zb0EW/ldiw7gfQNPgePSDqpZITKHqiHA=
+github.com/klauspost/compress v1.20.1 h1:T7kKElXUMXrUJ2E9QhQhxFtcK5rPyLdsGZvdbLMPdiQ=
+github.com/klauspost/compress v1.20.1/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/phsym/console-slog v0.3.1 h1:Fuzcrjr40xTc004S9Kni8XfNsk+qrptQmyR+wZw9/7A=
 github.com/phsym/console-slog v0.3.1/go.mod h1:oJskjp/X6e6c0mGpfP8ELkfKUsrkDifYRAqJQgmdDS0=
 github.com/puzpuzpuz/xsync/v3 v3.5.1 h1:GJYJZwO6IdxN/IKbneznS6yPkVC+c3zyY/j19c++5Fg=

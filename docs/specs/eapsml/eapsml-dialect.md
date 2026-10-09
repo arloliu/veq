@@ -83,41 +83,62 @@ and a reply belongs to its primary's connection.
 
 ## 5. Mapping to tracepack
 
-The converter (`cmd/eapconv`, not yet written) writes tracepack `log` captures,
+The converter `cmd/eapconv` writes tracepack `log` captures,
 following the tracepack specification (go-secs `docs/specs/tracepack/`) at the version veq pins (V-14).
 The multi-capture rules below are those of specification 2.29 (go-secs decisions G5-186 and G5-187);
 the pinned v0.2.0 still reports 2.28, and the rules apply to the converter from the start (V-16).
+One run converts an ordered set of log files.
 
-- **One capture per equipment connection** found in the log (§3),
-  each with its own tool and device identity:
+- **One capture per equipment connection** found in the logs (§3):
   transaction keys and epochs are scoped per capture, so two connections in one capture would mix their System Bytes.
-  The rule that maps a device token or a header session ID to a capture is part of this dialect
-  and is recorded in the capture's source-dialect metadata;
-  the token itself stays in the source text.
-  Each capture holds only its own connection's entries and lines.
-- **Lines of no connection**:
-  lines the rules of §3 assign to no equipment connection, such as the EAP's own scenario and message-bus lines,
-  go into one more capture, written only if there are any.
+  A message's connection is `deviceid=N` when its header line carries the DEVICEID token,
+  else `session=N` from its own logged header (§2);
+  a reply takes its primary's connection.
+  The operator maps each connection to its tool ID, and a connection without one fails the run before anything is written.
+  Each capture holds only its own connection's entries.
+- **Lines of no connection** go into one more capture, written only if there are any:
+  lines that hold no message, such as the EAP's own scenario and message-bus lines,
+  messages the EAP built for its own use (§4),
+  and messages whose connection is unknown, which the pilot sample does not contain.
   Its tool ID is the EAP's identity as configured in the converter, and it must differ from every equipment's tool ID.
   The converter checks that, since each tracepack writer sees only its own capture.
-- **Capture identity**: one capture ID per tool ID per converter run per set of source files.
-- **Pack metadata**: capture method `log`, vantage `host`, the log's time zone as time source,
-  and the source dialect and source references, which a `log` capture requires.
-  The capture of lines of no connection has the same metadata.
+- **Pack metadata**: transport `hsms-ss`, since the logged headers are HSMS headers;
+  capture method `log`, vantage `host`, time source `source-log` in the log's time zone;
+  source dialect `eapsml/1 sml.Parse`, this dialect read by `internal/eapsml` with the lenient SML parser,
+  and the converter with that parser as classifier.
+  A source reference is the file's base name and the SHA-256 of its content, never a local path.
   Every pack of every capture of a run lists the run's source files as the same source references in the same order (go-secs G5-187),
   so a source index names the same file in every capture.
-- **Records**: fidelity `reconstructed`;
-  decode status `reconstructed-ok`, or `parse-failed` or `build-rejected` for what cannot be rebuilt,
-  the only statuses a log writer may store.
+  The capture of lines of no connection has the same metadata.
+- **Records**: a message that parses and builds becomes one `data` record, fidelity `reconstructed`, decode status `reconstructed-ok`,
+  at the time of its header line.
+  A body logged without its header is still a message, of unknown direction.
+  Every other entry becomes one annotation carrying its source bytes and range, at the entry's time:
+  an entry that holds no message is an `unrecognised-line`;
+  each entry of an encrypted body, a header without a body, a body that does not parse or a message the EAP built for itself is an `unparsed-entry` with `parse-failed`.
+- **The W-bit**: a W written in the body line is source text, so a W on a reply there fails the parse (`parse-failed`);
+  a W taken only from the header is metadata, so the parse succeeds and the build rejects it (`build-rejected`).
 - **Identities**: System Bytes, Session ID and W come only from a logged header that this dialect shows to be the message's own wire header (§2);
-  otherwise their field-validity bits stay clear and the record is marked `correlation-incomplete`.
-  The log has no connect or accept lines, so every record is in epoch 0, which the format also marks `correlation-incomplete`.
+  otherwise their field-validity bits stay clear.
+  The log has no connect or accept lines, so every record is in epoch 0, which the format marks `correlation-incomplete`.
   The TID has no field; it stays in the entry's source text.
+- **Time**: an entry without a parseable timestamp takes the previous entry's time,
+  or for the first entries of a run the first parseable time,
+  and is marked `ordering-uncertain`;
+  so is a local time that occurs twice or never in a daylight-saving change, which takes the earlier reading.
 - **Nothing is dropped**:
-  non-wire bodies, encrypted bodies and unparsable entries become `unparsed-entry` annotations with `parse-failed`.
-  Coverage is counted over the whole run:
+  coverage is counted over the whole run:
   each input byte range is in exactly one record or annotation of exactly one capture,
   and no capture repeats another's bytes as annotations.
-  Decode-status counts are reported per capture.
-- **Reproducible output**: the converter passes the clock and the capture identifiers explicitly,
-  so the same log always yields the same bytes.
+  The converter reports, per capture, its records per decode status and the source bytes they cover.
+- **Output**: segment packs, one per run of a capture's records in one UTC hour, under the store's staging keys;
+  the start and stop boundaries sit at the times of the capture's first and last records.
+  Whether a converter should write these segments, or archive packs as storage specification §7 item 9 allows,
+  awaits the tracepack owner.
+- **Reproducible output**: capture and pack IDs are UUIDv7 values whose time is the capture's first record or the segment's hour,
+  and whose other bits hash the source references, the tool ID and the converter version;
+  the writer start time is the last entry's unless the operator gives one.
+  So the same files always yield the same bytes.
+  The converter version is the module version, else the VCS revision of the build, marked when the tree was modified;
+  a modified tree hashes as its base revision.
+  Whether a re-run may reuse a capture ID also awaits the tracepack owner.
