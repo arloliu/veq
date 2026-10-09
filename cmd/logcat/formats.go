@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"encoding/csv"
+	"maps"
 	"math"
 	"os"
 	"slices"
@@ -15,9 +16,9 @@ import (
 	"github.com/arloliu/veq/internal/eapsml"
 )
 
-// formatTable records, per tool and variable ID, the values a tool returned for it.
+// formatTable records, per tool, device and variable ID, the values returned for it.
 type formatTable struct {
-	stats map[[2]string]*formatStat
+	stats map[[3]string]*formatStat
 }
 
 type formatStat struct {
@@ -34,13 +35,13 @@ type formatStat struct {
 }
 
 func newFormatTable() *formatTable {
-	return &formatTable{stats: map[[2]string]*formatStat{}}
+	return &formatTable{stats: map[[3]string]*formatStat{}}
 }
 
 func (t *formatTable) len() int { return len(t.stats) }
 
 // addTransaction records a <L ID...> query (S1F3, S2F13) answered by a <L V...> reply of the same length.
-func (t *formatTable) addTransaction(tool string, tx *eapsml.Transaction, query string) {
+func (t *formatTable) addTransaction(tool, device string, tx *eapsml.Transaction, query string) {
 	if tx.Primary.SxFy() != query || tx.Primary.Item == nil || tx.Reply.Item == nil {
 		return
 	}
@@ -49,12 +50,12 @@ func (t *formatTable) addTransaction(tool string, tx *eapsml.Transaction, query 
 		return
 	}
 	for i, id := range ids {
-		t.observe(tool, scalar(id), vals[i], tx.Primary.Name, tx.Reply.Time, false)
+		t.observe([3]string{tool, device, scalar(id)}, vals[i], tx.Primary.Name, tx.Reply.Time, false)
 	}
 }
 
 // addSet records the values of an S2F15 <L <L ECID ECV>...> sent to the tool.
-func (t *formatTable) addSet(tool string, m *eapsml.Message) {
+func (t *formatTable) addSet(tool, device string, m *eapsml.Message) {
 	if m.SxFy() != "S2F15" || m.Dir != eapsml.HostToEquip || m.Item == nil {
 		return
 	}
@@ -63,12 +64,11 @@ func (t *formatTable) addSet(tool string, m *eapsml.Message) {
 		if err != nil {
 			continue
 		}
-		t.observe(tool, scalarAt(p, 0), ecv, m.Name, m.Time, true)
+		t.observe([3]string{tool, device, scalarAt(p, 0)}, ecv, m.Name, m.Time, true)
 	}
 }
 
-func (t *formatTable) observe(tool, id string, v secs2.Item, name string, ts time.Time, isSet bool) {
-	k := [2]string{tool, id}
+func (t *formatTable) observe(k [3]string, v secs2.Item, name string, ts time.Time, isSet bool) {
 	s := t.stats[k]
 	if s == nil {
 		s = &formatStat{formats: map[string]int{}, values: map[string]int{}, names: map[string]int{},
@@ -113,16 +113,15 @@ func (t *formatTable) observe(tool, id string, v secs2.Item, name string, ts tim
 }
 
 func (t *formatTable) writeCSV(path string, withSets bool) (err error) {
-	keys := make([][2]string, 0, len(t.stats))
-	for k := range t.stats {
-		keys = append(keys, k)
-	}
-	slices.SortFunc(keys, func(a, b [2]string) int {
+	keys := slices.SortedFunc(maps.Keys(t.stats), func(a, b [3]string) int {
 		if c := strings.Compare(a[0], b[0]); c != 0 {
 			return c
 		}
+		if c := strings.Compare(a[1], b[1]); c != 0 {
+			return c
+		}
 
-		return idCompare(a[1], b[1])
+		return idCompare(a[2], b[2])
 	})
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -136,7 +135,7 @@ func (t *formatTable) writeCSV(path string, withSets bool) (err error) {
 	}()
 
 	w := csv.NewWriter(f)
-	head := []string{"tool", "id", "format", "format_variants", "observations", "empty_replies", "max_size",
+	head := []string{"tool", "device", "id", "format", "format_variants", "observations", "empty_replies", "max_size",
 		"distinct_values", "min", "max", "sample_values", "query_names", "first_ts", "last_ts"}
 	if withSets {
 		head = append(head, "s2f15_sets")
@@ -147,13 +146,13 @@ func (t *formatTable) writeCSV(path string, withSets bool) (err error) {
 	for _, k := range keys {
 		s := t.stats[k]
 		fmts := byCount(s.formats)
-		row := []string{k[0], k[1], fmts[0], strings.Join(fmts, "|"), strconv.Itoa(s.obs), strconv.Itoa(s.empty),
+		row := []string{k[0], k[1], k[2], fmts[0], strings.Join(fmts, "|"), strconv.Itoa(s.obs), strconv.Itoa(s.empty),
 			strconv.Itoa(s.maxSize), strconv.Itoa(len(s.values)), "", "",
 			strings.Join(head3(byCount(s.values)), " ; "), strings.Join(head3(byCount(s.names)), " ; "),
 			s.first.Format(tsOut), s.last.Format(tsOut)}
 		if s.numeric {
-			row[8] = strconv.FormatFloat(s.minV, 'g', 7, 64)
-			row[9] = strconv.FormatFloat(s.maxV, 'g', 7, 64)
+			row[9] = strconv.FormatFloat(s.minV, 'g', 7, 64)
+			row[10] = strconv.FormatFloat(s.maxV, 'g', 7, 64)
 		}
 		if withSets {
 			row = append(row, strconv.Itoa(s.sets))

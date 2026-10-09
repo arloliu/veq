@@ -121,3 +121,46 @@ func TestCorrelator(t *testing.T) {
 		t.Errorf("unreplied = %d, want 2", n)
 	}
 }
+
+// deviceLog is synthetic; it mimics header lines with and without the DEVICEID token.
+const deviceLog = `2026-01-02 08:00:00.0000 INFO - [Handler.EventHandler]: Received S1F2 /Header=[80-00-01-02-00-00-00-00-00-10] TID=16 DEVICEID=4 FORMAT=RAW
+2026-01-02 08:00:00.0000 INFO - [Logger.PrintSECSMsgBody]: : 'S1F2'
+    <L [0] >
+.
+2026-01-02 08:00:01.0000 INFO - [Sender.Reply]: Send Msg: [S6F6] /Header=[00-01-86-05-00-00-00-00-00-20] TID=32
+2026-01-02 08:00:01.0000 INFO - [Sender.Reply]: Grant: 'S6F6'
+    <B [1] 0x00 >
+.
+2026-01-02 08:00:02.0000 INFO - [Handler.EventHandler]: Received S6F11 /Header=[00-01-06-0B-00-00-00-00-00-30] TID=48
+2026-01-02 08:00:02.0000 INFO - [Logger.PrintSECSMsgBody]: : 'S6F11'
+    <L [0] >
+.
+2026-01-02 08:00:03.0000 INFO - [Logger.PrintSECSMsgBody]: Orphan: 'S1F1' W
+.
+`
+
+func TestReadDevice(t *testing.T) {
+	msgs, err := ReadAll(strings.NewReader(deviceLog), time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wants := []struct {
+		sxfy      string
+		sessionID int
+		device    int
+	}{
+		{"S1F2", 0x8000, 4}, // DEVICEID token logged; the session ID is kept raw
+		{"S6F6", -1, -1},    // header names the primary S6F5, so it is not this message's
+		{"S6F11", 1, -1},    // own header, no token
+		{"S1F1", -1, -1},    // no header line
+	}
+	if len(msgs) != len(wants) {
+		t.Fatalf("got %d messages, want %d", len(msgs), len(wants))
+	}
+	for i, w := range wants {
+		m := msgs[i]
+		if m.SxFy() != w.sxfy || m.SessionID != w.sessionID || m.Device != w.device {
+			t.Errorf("message %d = %s session=%d device=%d, want %+v", i, m.SxFy(), m.SessionID, m.Device, w)
+		}
+	}
+}

@@ -29,7 +29,7 @@ Inputs to obtain (owner):
 
 Work (veq):
 
-- Read the equipment gateway's code to learn whether it acknowledges event and alarm reports itself (`eapsml-dialect.md` §2).
+- Done: the equipment gateway does not acknowledge event and alarm reports; the tools are configured not to ask (decision V-8).
 - Run `cmd/logcat` over the new logs and confirm or correct `eapsml-dialect.md`.
 - Write `docs/specs/ve/ve-evidence.md` (living):
   per source — EAP logs, gateway capture, manual, identifier exports, standards —

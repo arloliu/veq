@@ -187,6 +187,7 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   bodies of some messages are logged encrypted;
   the EAP also logs non-wire messages it builds itself.
   G3-20 is superseded by V-3.
+  (The transaction-id statement is superseded by V-8.)
 - V-4 Re-derivation: the owner re-opened the whole VE design, including the pilot gates G0–G4,
   whose definitions were lost with the removed v3 synthesis.
   All earlier entries stand as a record but bind nothing until re-confirmed by a later entry;
@@ -205,3 +206,12 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   Transport-layer and malformed-frame evidence requires `wire-exact` records, whatever the pack's capture method.
   The pack header field `evidence` of G4-28 is superseded; G4-28's grade rules stand.
   Field names confirmed with the go-secs session; they are identical at 146846a and on its next branch.
+
+## 2026-10-10 log dialect corrections
+
+- V-8 Whether the EAP's transaction id equals the logged System Bytes depends on the EAP version, not on the initiating side:
+  on one pilot tool it does for every message, on the other for none.
+  The equipment gateway keeps System Bytes and rewrites only the session ID.
+  Event and alarm reports carry no W-bit because the tools are configured not to ask for replies, not because the gateway acknowledges them.
+  One EAP log can carry several equipment connections, so `cmd/logcat` separates them.
+  Details are in `docs/specs/eapsml/eapsml-dialect.md`.

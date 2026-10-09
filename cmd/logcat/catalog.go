@@ -12,9 +12,10 @@ import (
 	"github.com/arloliu/veq/internal/eapsml"
 )
 
-// toolCatalog accumulates what one tool's log shows.
+// toolCatalog accumulates what one tool's log shows for one device.
 type toolCatalog struct {
 	Tool          string
+	Device        string
 	Source        string
 	First, Last   time.Time
 	Messages      map[string]int // "E->H S6F11" -> count
@@ -36,9 +37,9 @@ type idCount struct {
 	Variants map[string]int `json:"variants,omitempty"` // RPTID: value shapes; ALID: ALCD; RCMD: HCACK
 }
 
-func newToolCatalog(tool, source string) *toolCatalog {
+func newToolCatalog(tool, device, source string) *toolCatalog {
 	return &toolCatalog{
-		Tool: tool, Source: source,
+		Tool: tool, Device: device, Source: source,
 		Messages: map[string]int{}, Flags: map[string]int{},
 		Unreplied: map[string]int{}, OrphanReplies: map[string]int{},
 		ceids: map[string]*idCount{}, rptids: map[string]*idCount{},
@@ -133,8 +134,8 @@ func compactShape(s string) string {
 }
 
 func (tc *toolCatalog) summary() string {
-	return fmt.Sprintf("%s: %s..%s messages=%d flags=%v unreplied=%d orphan_replies=%d ceid=%d rptid=%d alid=%d rcmd=%d",
-		tc.Tool, tc.First.Format(time.DateTime), tc.Last.Format(time.DateTime), sum(tc.Messages), tc.Flags,
+	return fmt.Sprintf("%s %s: %s..%s messages=%d flags=%v unreplied=%d orphan_replies=%d ceid=%d rptid=%d alid=%d rcmd=%d",
+		tc.Tool, tc.Device, tc.First.Format(time.DateTime), tc.Last.Format(time.DateTime), sum(tc.Messages), tc.Flags,
 		sum(tc.Unreplied), sum(tc.OrphanReplies), len(tc.ceids), len(tc.rptids), len(tc.alids), len(tc.rcmds))
 }
 
@@ -142,6 +143,7 @@ func (tc *toolCatalog) summary() string {
 func (tc *toolCatalog) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Tool          string         `json:"tool"`
+		Device        string         `json:"device"`
 		Source        string         `json:"source"`
 		First         time.Time      `json:"first"`
 		Last          time.Time      `json:"last"`
@@ -154,7 +156,7 @@ func (tc *toolCatalog) MarshalJSON() ([]byte, error) {
 		ALIDs         []*idCount     `json:"alids"`
 		RCMDs         []*idCount     `json:"rcmds"`
 	}{
-		tc.Tool, tc.Source, tc.First, tc.Last, tc.Messages, tc.Flags, tc.Unreplied, tc.OrphanReplies,
+		tc.Tool, tc.Device, tc.Source, tc.First, tc.Last, tc.Messages, tc.Flags, tc.Unreplied, tc.OrphanReplies,
 		sortedIDs(tc.ceids), sortedIDs(tc.rptids), sortedIDs(tc.alids), sortedIDs(tc.rcmds),
 	})
 }

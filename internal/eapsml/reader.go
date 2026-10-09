@@ -17,7 +17,9 @@
 // Other such lines, such as messages the EAP builds for its own use, are not traffic and are skipped,
 // except that a PrintSECSMsgBody line without a header is kept with FlagHeaderMissing.
 // The logged header of a reply can carry the primary's stream and function,
-// so the W-bit is read from the header only when the header names the same message.
+// so the W-bit and the session ID are read from the header only when the header names the same message.
+// Some EAP versions add a "DEVICEID=n" token to the header line:
+// the EAP's number for the equipment connection, which can differ from the header's session ID.
 // Bodies the EAP logs encrypted ("Encrypt S7Fy=...") are reported with FlagEncrypted and no item.
 package eapsml
 
@@ -82,6 +84,10 @@ type Message struct {
 	WBit     bool
 	TID      uint32 // the EAP's transaction id; equal on a primary and its reply
 	Header   []byte // the 10-byte HSMS header as logged, nil when absent
+	// SessionID is bytes 0-1 of the logged header, -1 when the header is absent or names another message.
+	SessionID int
+	// Device is the EAP's device number from the header line's DEVICEID token, -1 when not logged.
+	Device   int
 	Name     string // the EAP's own name for the message, may be empty
 	Body     string // the SML text as logged, without the body line
 	Item     secs2.Item
@@ -98,6 +104,7 @@ var (
 	tsRe      = regexp.MustCompile(`^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{4}`)
 	headerRe  = regexp.MustCompile(`(?:Received S(\d+)F(\d+)|Send Msg: \[S(\d+)F(\d+)\]) /Header=\[([0-9A-Fa-f-]+)\] TID=(\d+)`)
 	bodyRe    = regexp.MustCompile(`\]: (?:(.*?): )?'S(\d+)F(\d+)'( W)?\s*$`)
+	deviceRe  = regexp.MustCompile(` DEVICEID=(\d+)`)
 	encryptRe = regexp.MustCompile(`PrintSECSMsgBody\]: Encrypt S\d+Fy=S(\d+)F(\d+),TID=(\d+),`)
 )
 
@@ -171,7 +178,7 @@ func (r *Reader) step() error {
 	}
 
 	if h := headerRe.FindStringSubmatch(ln); h != nil {
-		r.onHeader(h, t)
+		r.onHeader(h, deviceRe.FindStringSubmatch(ln), t)
 		return nil
 	}
 	if b := bodyRe.FindStringSubmatch(ln); b != nil {
@@ -194,7 +201,7 @@ func (r *Reader) step() error {
 	return nil
 }
 
-func (r *Reader) onHeader(h []string, t time.Time) {
+func (r *Reader) onHeader(h, dev []string, t time.Time) {
 	s, f, dir := h[1], h[2], EquipToHost
 	if s == "" {
 		s, f, dir = h[3], h[4], HostToEquip
@@ -207,6 +214,12 @@ func (r *Reader) onHeader(h []string, t time.Time) {
 		m.Header = hdr
 		if hdr[2]&0x7f == m.Stream && hdr[3] == m.Function {
 			m.WBit = hdr[2]&0x80 != 0
+			m.SessionID = int(hdr[0])<<8 | int(hdr[1])
+		}
+	}
+	if dev != nil {
+		if d, err := strconv.ParseUint(dev[1], 10, 16); err == nil {
+			m.Device = int(d)
 		}
 	}
 	key := m.SxFy()
@@ -266,7 +279,7 @@ func newMessage(s, f string, t time.Time, line int) *Message {
 	sn, _ := strconv.ParseUint(s, 10, 8)
 	fn, _ := strconv.ParseUint(f, 10, 8)
 
-	return &Message{Time: t, Line: line, Stream: uint8(sn), Function: uint8(fn)}
+	return &Message{Time: t, Line: line, Stream: uint8(sn), Function: uint8(fn), SessionID: -1, Device: -1}
 }
 
 // ReadAll reads every message from r.
