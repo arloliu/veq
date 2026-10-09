@@ -110,7 +110,8 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
 - G4-28 Evidence grades:
   `reconstructed` (from EAP SML via converter) is accepted for semantic-layer learning (catalog, reply rules, timing, semantic quirks);
   transport-layer and malformed-frame quirks require `observed`.
-  Pack header field `evidence: observed | reconstructed`.
+  Pack header field `evidence: observed | reconstructed`
+  (this field superseded by V-7).
   Owner note: raw-byte capture can be added inside the equipment gateway —
   either in its NATS-facing EAP adapter or as a new `secs-recorder` device on a shadow channel (gRPC etc.).
   Caveat recorded:
@@ -198,3 +199,9 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
 - V-6 tracepack dependency: veq pins `github.com/arloliu/go-secs/tracepack` at a pseudo-version of go-secs main (currently 146846a), not v0.1.0;
   System Bytes, Session ID and W are taken only from a logged header the dialect proves to be the wire header;
   non-wire and unparsable entries become annotations, never dropped.
+- V-7 Evidence provenance: veq reuses the tracepack provenance fields instead of a VE-specific enum:
+  `capture_method` and `vantage` per pack, `fidelity` per record.
+  The grades `observed` (`wire-exact` or `re-encoded`) and `reconstructed` are views derived from `fidelity`, not stored.
+  Transport-layer and malformed-frame evidence requires `wire-exact` records, whatever the pack's capture method.
+  The pack header field `evidence` of G4-28 is superseded; G4-28's grade rules stand.
+  Field names confirmed with the go-secs session; they are identical at 146846a and on its next branch.

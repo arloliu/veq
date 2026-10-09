@@ -4,6 +4,8 @@ Status: draft (2026-10-09) — v4.2 baseline written before any pilot data; unde
 
 The owner re-opened the whole design on 2026-10-09 because v4.2 rested on assumptions made without pilot data.
 This text is the starting point for that re-derivation, not a settled design.
+Parts whose source was a removed revision are marked **open** with the re-derivation phase that settles them;
+the phases are tracked from the [roadmap](../../ROADMAP.md).
 
 Scope of this document: what the VE is, which objects exist, which contracts hold between them, and how success is measured.
 Encodings, sizes, algorithms and API shapes are named as open implementation items, not specified.
@@ -39,7 +41,7 @@ SECS-I binding in v1 (interface abstract); E87/E40/E94 semantic models (replay +
 ```
  vendor GEM manual ─► Spec Compiler ─► cited assertions ─┐
  EAP SML logs ─► converter ─► tracepack (reconstructed) ──┤ Evidence Store (§6)
- recorders (link tap / gateway) ─► tracepack (observed) ──┘        │
+ recorders (raw / decoded)      ─► tracepack (observed) ──┘        │
                                                                    ▼
                                                      Profile Builder (§7) ─► candidate Profile
                                                                    │
@@ -170,7 +172,9 @@ Instance State objects with state machine, timers, cancellation and dependencies
   `suspend` exists only as a labelled vendor quirk with journal `trace-discontinuity`.
   TOTSMP=0 cancels and removes the producer and its scheduled work.
 - **Recipe transfer**, **establish communications** (both E30 §3.2 AND-substates; Profile `comm-init: host | equipment | both`),
-  **spool unload**, **control state** (E30 Table 2 note 3 order chosen by Profile) as in the v3 synthesis (not in this repository).
+  **spool unload**, **control state** (E30 Table 2 note 3 order chosen by Profile).
+  Their GEM behaviour is in [ve-gem-skeleton.md](ve-gem-skeleton.md);
+  their conversation rules (timers, cancellation, failure outcomes) are open (phase 3).
 
 ### 4.4 Transport adapter
 Passive endpoint via go-secs with a VE conn wrapper from `WithListener`.
@@ -255,7 +259,7 @@ and journal `unsupported(S,F,reason)`.
 ### 4.9 Worked example (compact, normative at the level of ordering and state)
 Full timestamped tables move to the worked-examples document (not in this repository)
 with the implementation spec ([ve-decisions.md](ve-decisions.md) R3-6);
-the v3 synthesis tables are withdrawn because their trace timeline and completion rows contradicted §4.2/§4.3.
+earlier timestamped tables were withdrawn because their trace timeline and completion rows contradicted §4.2/§4.3.
 The compact example below fixes the orderings that earlier rounds got wrong.
 
 Profile: `comm-init: host`, `event-inquire-grant: never`,
@@ -278,7 +282,7 @@ Initial: COMMUNICATING, ON-LINE/REMOTE, EXECUTING; trace T1 {DSPER 1 s, REPGSZ 5
 ---
 
 ## 5. Skeleton: capability library plus reference model
-As in the v3 synthesis (not in this repository):
+Known rules:
 switchable capabilities;
 reference model only for conformance reporting;
 rule states `candidate | accepted | override | unresolved`;
@@ -287,14 +291,24 @@ validation exception path for accepted nonconformance;
 conformance and fidelity reported separately;
 ≤ 2 extension hooks;
 `gem: false` path.
+The capability boundaries and the validation exception path are open (phase 3).
 
 ---
 
 ## 6. Evidence model
-- **Grades**: `observed` (from a connection tap recorder, or from a decoded recorder on the equipment gateway side for well-formed frames),
-  `reconstructed` (EAP SML converter).
-  **Provenance** is recorded separately: `connection-tap | decoded-gateway | converter`;
-  malformed-frame evidence requires `connection-tap`.
+- **Provenance** uses the tracepack fields, not a VE enum ([ve-decisions.md](ve-decisions.md) V-7):
+  `capture_method` per pack (`raw-stream | decoded-message | log | generator`),
+  `vantage` per pack (`host | equipment | intermediary | network | none`),
+  and `fidelity` per record (`wire-exact | re-encoded | reconstructed | synthesized | not-applicable`);
+  each also has `unknown`.
+- **Grades** are views derived from `fidelity`, not stored:
+  `observed` is `wire-exact` or `re-encoded`; `reconstructed` is `reconstructed`.
+- **Sources**:
+  a raw recorder on the EAP's connection, in a relay or on the network writes `raw-stream` packs of `wire-exact` records;
+  the equipment gateway after decoding writes `decoded-message` packs from vantage `intermediary`, records `re-encoded`;
+  the EAP SML converter writes `log` packs from the vantage where the EAP logged (usually `host`), records `reconstructed`.
+- Transport-layer and malformed-frame evidence requires `wire-exact` records, whatever the pack's capture method;
+  a `decoded-message` recorder that keeps the raw bytes of frames it failed to decode also writes `wire-exact` records.
 - **Scopes and where they live**: tracepack holds capture id, transport epoch and transaction identity
   (capture id, epoch, initiating direction, DeviceID, SystemBytes, primary record reference).
   Conversation, process-activity and evaluation-episode scopes live in a VE **Evidence Index** sidecar keyed by (capture id, record seq),
@@ -315,7 +329,7 @@ log miner (local CPU, incremental by epoch; candidates → accepted at ≥ 3 evi
 value generators (trajectory → state-derived → request-ordered lookup → persistent-state lookup → producer-inherited ids → literal echo → enum → counter → constant → bounded numeric),
 conflict resolution (`unresolved` blocks promotion when it affects scored behaviour),
 provenance per rule.
-Unchanged from the v3 synthesis §7 (not in this repository).
+Stage order, miner algorithms and the candidate-to-accepted workflow beyond this summary are open (phase 3).
 
 ---
 
@@ -330,7 +344,8 @@ negative controls (a deliberately broken Profile must fail);
 **absolute floors** per dimension fixed at G0 (design defaults: responses ≥ 95 % matched on the frozen population; mandatory fixtures 100 %).
 
 ### 8.2 Evaluators and execution paths
-- Historical replay against recorded primary/secondary transaction pairs (v3 synthesis §8.2, not in this repository).
+- Historical replay against recorded primary/secondary transaction pairs on a closed input tape (§10);
+  its matching and scoring rules are open (phase 3).
 - Host harness (Go, HSMS active) for EAP fixtures, directly against the VE.
 - **FDC fixtures run through the equipment gateway and the FDC service in the end-to-end container setup from v1**,
   because their oracles are FDC service outputs;
@@ -351,11 +366,12 @@ each fixture family must execute at least once in the pilot.
 ---
 
 ## 9. Profile Registry and promotion gate
-As in the v3 synthesis §9 (not in this repository) plus:
+Known rules:
 promotion requires absolute floors;
 `unresolved` rules affecting scored behaviour block;
 ≥ 3 seeded runs for stochastic comparison;
 every promoted version runnable.
+Registry contents (versioning, rollback, applicability lookup) are open (phase 3).
 
 ---
 
@@ -391,7 +407,10 @@ R replay (baseline) → T templated + Instance State → M manual-derived → C 
 No go-secs core change is a pilot prerequisite.
 
 ## 13. Pilot gates
-As in the v3 synthesis §13 (not in this repository) with:
+The definitions of gates G0–G4 were lost with a removed revision
+and are open (phase 2, [ve-decisions.md](ve-decisions.md) V-4).
+The constraints below were recorded against them;
+they are inputs to phase 2 and bind nothing until re-confirmed:
 G0 freezes fixture stimulus/target/oracle/deadline/applicability/negative control and absolute floors;
 G3 predeclares a ceiling case
 (if the R baseline already meets the timing target, G3 passes on quirk applicability or is N/A with justification);
