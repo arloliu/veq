@@ -21,15 +21,23 @@
 // Some EAP versions add a "DEVICEID=n" token to the header line:
 // the EAP's number for the equipment connection, which can differ from the header's session ID.
 // Bodies the EAP logs encrypted ("Encrypt S7Fy=...") are reported with FlagEncrypted and no item.
+//
+// An entry is a timestamped line with the untimestamped lines after it.
+// Each message records the byte spans of the entries it was read from;
+// WithEveryEntry also returns the entries that hold no message, so the spans cover the whole input.
 package eapsml
 
 import (
 	"bufio"
+	"cmp"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -72,6 +80,12 @@ const (
 	FlagHeaderMissing
 	// FlagParseFailed: the SML body did not parse; ParseErr says why and Item is nil.
 	FlagParseFailed
+	// FlagNotMessage: an entry that holds no message, returned only WithEveryEntry;
+	// only Spans, Line and Time are set.
+	FlagNotMessage
+	// FlagNotTraffic: a message the EAP built for its own use and logged without a header, returned only WithEveryEntry;
+	// it was never sent, so its body is not parsed.
+	FlagNotTraffic
 )
 
 // Message is one SECS message reconstructed from the log.
@@ -86,6 +100,8 @@ type Message struct {
 	Header   []byte // the 10-byte HSMS header as logged, nil when absent
 	// SessionID is bytes 0-1 of the logged header, -1 when the header is absent or names another message.
 	SessionID int
+	// SystemBytes is bytes 6-9 of the logged header, -1 when the header is absent or names another message.
+	SystemBytes int64
 	// Device is the EAP's device number from the header line's DEVICEID token, -1 when not logged.
 	Device   int
 	Name     string // the EAP's own name for the message, may be empty
@@ -93,6 +109,9 @@ type Message struct {
 	Item     secs2.Item
 	Flags    Flag
 	ParseErr error
+	// Spans are the log entries the message was read from, in log order:
+	// the header entry, then the body or encrypted-body entry, as the log holds them.
+	Spans []Span
 }
 
 // SxFy returns the message's stream and function as "SxFy".
@@ -108,24 +127,44 @@ var (
 	encryptRe = regexp.MustCompile(`PrintSECSMsgBody\]: Encrypt S\d+Fy=S(\d+)F(\d+),TID=(\d+),`)
 )
 
+// entryOwner says what the open entry belongs to, which decides what closing it does.
+type entryOwner uint8
+
+const (
+	ownerNone   entryOwner = iota // nothing keeps the entry
+	ownerHeader                   // the header of a message waiting for its body
+	ownerBody                     // the body of a message, finished when the entry closes
+	ownerWhole                    // a complete message, returned when the entry closes
+)
+
 // Reader reads messages from an EAP log in log order of their bodies.
 type Reader struct {
 	sc      *bufio.Scanner
 	loc     *time.Location
+	every   bool
 	line    int
+	offset  int64               // bytes read so far
+	started bool                // an entry is open
+	entry   Span                // the open entry
+	owner   *Message            // what the open entry belongs to, by kind
+	kind    entryOwner          // how the open entry belongs to owner
 	pending map[string]*Message // header seen, body not yet; keyed by SxFy
-	body    *Message            // message whose SML lines are being collected
-	lines   []string
+	lines   []string            // SML lines of the open body entry
 	out     []*Message
 	eof     bool
 }
 
 // NewReader returns a Reader that interprets log timestamps in loc.
-func NewReader(r io.Reader, loc *time.Location) *Reader {
+func NewReader(r io.Reader, loc *time.Location, opts ...Option) *Reader {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1<<20), 64<<20)
+	sc.Split(scanLines)
+	rd := &Reader{sc: sc, loc: loc, pending: map[string]*Message{}}
+	for _, o := range opts {
+		o(rd)
+	}
 
-	return &Reader{sc: sc, loc: loc, pending: map[string]*Message{}}
+	return rd
 }
 
 // Next returns the next message, or io.EOF after the last one.
@@ -150,8 +189,10 @@ func (r *Reader) step() error {
 			return err
 		}
 		r.eof = true
-		r.finishBody()
-		for _, m := range r.pending {
+		r.closeEntry()
+		rest := slices.Collect(maps.Values(r.pending))
+		slices.SortFunc(rest, func(a, b *Message) int { return cmp.Compare(a.Line, b.Line) })
+		for _, m := range rest {
 			m.Flags |= FlagBodyMissing
 			r.out = append(r.out, m)
 		}
@@ -160,46 +201,108 @@ func (r *Reader) step() error {
 		return nil
 	}
 	r.line++
-	ln := r.sc.Text()
+	raw := r.sc.Bytes()
+	ln := string(trimLineEnd(raw))
 	ts := tsRe.FindString(ln)
-	if ts == "" {
-		if r.body != nil {
+	if ts == "" && r.started {
+		r.entry.Len += int64(len(raw))
+		r.offset += int64(len(raw))
+		if r.kind == ownerBody {
 			r.lines = append(r.lines, ln)
 		}
 
 		return nil
 	}
-	r.finishBody()
-	t, err := time.ParseInLocation(tsLayout, ts, r.loc)
+	r.closeEntry()
+	r.started = true
+	r.entry = Span{Offset: r.offset, Len: int64(len(raw)), Line: r.line}
+	r.offset += int64(len(raw))
+	if ts == "" {
+		// Lines before the first timestamped line.
+		r.keepOther(newMessage("0", "0", time.Time{}, r.line))
+		return nil
+	}
+	t, uncertain, err := parseLocal(ts, r.loc)
 	if err != nil {
-		return fmt.Errorf("line %d: %w", r.line, err)
-	}
-
-	if h := headerRe.FindStringSubmatch(ln); h != nil {
-		r.onHeader(h, deviceRe.FindStringSubmatch(ln), t)
-		return nil
-	}
-	if b := bodyRe.FindStringSubmatch(ln); b != nil {
-		key := "S" + b[2] + "F" + b[3]
-		if _, ok := r.pending[key]; !ok && !strings.Contains(ln, "PrintSECSMsgBody]") {
-			return nil
+		if !r.every {
+			return fmt.Errorf("line %d: %w", r.line, err)
 		}
-		r.body = r.takePending(b[2], b[3], t)
-		r.body.Name = b[1]
-		r.body.WBit = r.body.WBit || b[4] != ""
+		r.keepOther(newMessage("0", "0", time.Time{}, r.line))
 
 		return nil
 	}
-	if e := encryptRe.FindStringSubmatch(ln); e != nil {
-		m := r.takePending(e[1], e[2], t)
-		m.Flags |= FlagEncrypted
-		r.out = append(r.out, m)
-	}
+	r.entry.Time, r.entry.TimeUncertain = t, uncertain
+	r.classify(ln, t)
 
 	return nil
 }
 
-func (r *Reader) onHeader(h, dev []string, t time.Time) {
+// classify decides what the timestamped line ln opens.
+func (r *Reader) classify(ln string, t time.Time) {
+	if h := headerRe.FindStringSubmatch(ln); h != nil {
+		r.owner, r.kind = r.onHeader(h, deviceRe.FindStringSubmatch(ln), t), ownerHeader
+		return
+	}
+	if b := bodyRe.FindStringSubmatch(ln); b != nil {
+		key := "S" + b[2] + "F" + b[3]
+		if _, ok := r.pending[key]; !ok && !strings.Contains(ln, "PrintSECSMsgBody]") {
+			m := newMessage(b[2], b[3], t, r.line)
+			m.Name, m.WBit, m.Flags = b[1], b[4] != "", FlagNotTraffic
+			r.keepOther(m)
+
+			return
+		}
+		m := r.takePending(b[2], b[3], t)
+		m.Name = b[1]
+		m.WBit = m.WBit || b[4] != ""
+		r.owner, r.kind = m, ownerBody
+
+		return
+	}
+	if e := encryptRe.FindStringSubmatch(ln); e != nil {
+		m := r.takePending(e[1], e[2], t)
+		m.Flags |= FlagEncrypted
+		r.owner, r.kind = m, ownerWhole
+
+		return
+	}
+	m := newMessage("0", "0", t, r.line)
+	r.keepOther(m)
+}
+
+// keepOther makes m, an entry that is no traffic, the owner of the open entry when every entry is returned.
+func (r *Reader) keepOther(m *Message) {
+	if !r.every {
+		return
+	}
+	if m.Flags&FlagNotTraffic == 0 {
+		m.Flags |= FlagNotMessage
+	}
+	r.owner, r.kind = m, ownerWhole
+}
+
+// closeEntry gives the open entry to its owner and finishes what the entry completes.
+func (r *Reader) closeEntry() {
+	if !r.started {
+		return
+	}
+	m, kind := r.owner, r.kind
+	r.started, r.owner, r.kind = false, nil, ownerNone
+	if kind == ownerNone {
+		r.lines = r.lines[:0]
+		return
+	}
+	m.Spans = append(m.Spans, r.entry)
+	// A header entry waits in pending for its body.
+	if kind == ownerBody {
+		r.finishBody(m)
+	}
+	if kind == ownerWhole {
+		r.out = append(r.out, m)
+	}
+}
+
+func (r *Reader) onHeader(h, dev []string, t time.Time) *Message {
 	s, f, dir := h[1], h[2], EquipToHost
 	if s == "" {
 		s, f, dir = h[3], h[4], HostToEquip
@@ -213,6 +316,7 @@ func (r *Reader) onHeader(h, dev []string, t time.Time) {
 		if hdr[2]&0x7f == m.Stream && hdr[3] == m.Function {
 			m.WBit = hdr[2]&0x80 != 0
 			m.SessionID = int(hdr[0])<<8 | int(hdr[1])
+			m.SystemBytes = int64(binary.BigEndian.Uint32(hdr[6:10]))
 		}
 	}
 	if dev != nil {
@@ -226,6 +330,8 @@ func (r *Reader) onHeader(h, dev []string, t time.Time) {
 		r.out = append(r.out, prev)
 	}
 	r.pending[key] = m
+
+	return m
 }
 
 // takePending returns the message whose header precedes this body, or a header-less one.
@@ -240,12 +346,7 @@ func (r *Reader) takePending(s, f string, t time.Time) *Message {
 	return m
 }
 
-func (r *Reader) finishBody() {
-	m := r.body
-	if m == nil {
-		return
-	}
-	r.body = nil
+func (r *Reader) finishBody(m *Message) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "'%s'", m.SxFy())
 	if m.WBit {
@@ -280,12 +381,12 @@ func newMessage(s, f string, t time.Time, line int) *Message {
 	sn, _ := strconv.ParseUint(s, 10, 8)
 	fn, _ := strconv.ParseUint(f, 10, 8)
 
-	return &Message{Time: t, Line: line, Stream: uint8(sn), Function: uint8(fn), SessionID: -1, Device: -1}
+	return &Message{Time: t, Line: line, Stream: uint8(sn), Function: uint8(fn), SessionID: -1, SystemBytes: -1, Device: -1}
 }
 
 // ReadAll reads every message from r.
-func ReadAll(r io.Reader, loc *time.Location) ([]*Message, error) {
-	rd := NewReader(r, loc)
+func ReadAll(r io.Reader, loc *time.Location, opts ...Option) ([]*Message, error) {
+	rd := NewReader(r, loc, opts...)
 	var all []*Message
 	for {
 		m, err := rd.Next()
