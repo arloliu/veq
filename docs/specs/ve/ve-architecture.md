@@ -1,11 +1,12 @@
 # Virtual Equipment architecture
 
-Status: draft (2026-10-09) — v4.2 baseline written before any pilot data; under re-derivation
+Status: draft (2026-10-09) — v4.2 baseline plus the accepted generation-service changes; under re-derivation
 
 The owner re-opened the whole design on 2026-10-09 because v4.2 rested on assumptions made without pilot data.
 This text is the starting point for that re-derivation, not a settled design.
 Parts whose source was a removed revision are marked **open** with the re-derivation phase that settles them;
 the phases are tracked from the [roadmap](../../ROADMAP.md).
+The changes of the accepted generation-service proposal are applied ([ve-decisions.md](ve-decisions.md) V-13).
 
 Scope of this document: what the VE is, which objects exist, which contracts hold between them, and how success is measured.
 Encodings, sizes, algorithms and API shapes are named as open implementation items, not specified.
@@ -32,30 +33,32 @@ Goals as testable targets:
    ≥ 80 % onboard with Profile data and ≤ 2 extension hooks ([ve-decisions.md](ve-decisions.md) R3-3).
 
 Non-goals: process physics; conformance certification; host-side virtual time;
-SECS-I binding in v1 (interface abstract); E87/E40/E94 semantic models (replay + templates only).
+SECS-I binding in v1 (interface abstract).
+The object standards (E87, E40, E94, E39, E90) are skeleton capabilities, not non-goals ([ve-decisions.md](ve-decisions.md) V-10):
+the standard is their prior, and the vendor manual and logs supply the delta.
 
 ---
 
 ## 2. Architecture
 
 ```
- vendor GEM manual ─► Spec Compiler ─► cited assertions ─┐
+ vendor GEM manual ─► Spec Compiler ─► cited assertions ──┐
  EAP SML logs ─► converter ─► tracepack (reconstructed) ──┤ Evidence Store (§6)
- recorders (raw / decoded)      ─► tracepack (observed) ──┘        │
+ traffic log service ─► tracepack (observed) ─────────────┘        │
                                                                    ▼
-                                                     Profile Builder (§7) ─► candidate Profile
-                                                                   │
-                        ┌──────────────────────────────────────────┴──────────────┐
-                        ▼                                                         ▼
-                 Evaluator (§8)                                          Profile Registry (§9)
+  outer loop ── chooses learners and priors ───────► learners (§7) ─► candidate artifact
+  experiment registry                                              │
+        ▲               ┌──────────────────────────────────────────┘
+        │               ▼
+        └── results ── Evaluator (§8) ─► promote ──────────────────────► Profile Registry (§9)
                         ▲                                                         │
-                ┌───────┴─────────────────────────────────────────────────────────▼─────┐
-                │ VE Runtime (Go, many instances per process)                            │
-                │  capability library + reference model (§5)                             │
-                │  Profile · Instance Overlay · Instance State · Scenario (§3)           │
-                │  event core → outbound adapter → transport adapter (§4)                │
-                │  clock modes (§10)                                                     │
-                └──────┬──────────────────────────┬────────────────────────┬────────────┘
+                ┌───────┴─────────────────────────────────────────────────────────▼─────────────┐
+                │  VE Runtime (Go, many instances per process)                                  │
+                │  capability library + reference model (§5)                                    │
+                │  Profile · tool delta · Instance Overlay · Instance State · Scenario (§3)     │
+                │  event core with slots (§4.10) → outbound adapter → transport adapter (§4)    │
+                │  clock modes (§10)                                                            │
+                └──────┬──────────────────────────┬────────────────────────┬────────────────────┘
                        ▼                          ▼                        ▼
                go-secs Passive HSMS-SS     in-process fake endpoint    gateway plugin (later)
 ```
@@ -64,18 +67,33 @@ Two governing ideas:
 **skeleton is code, tool delta is data** (the skeleton is an optional capability library plus a reference model, never an enforcer);
 **Profile is the unit of evolution**, distinct from Instance State and Scenario, promoted only through a gate.
 
+The generation service that produces Profiles runs two learning loops ([ve-decisions.md](ve-decisions.md) V-10, V-13):
+
+- The **inner loop** learns one tool type:
+  exchangeable learners (§7) turn evidence into a candidate artifact,
+  the Evaluator (§8) scores it,
+  and the gate (§9) promotes it into the **Profile registry** or rejects it.
+- The **outer loop** learns which learners, priors and parameters work across tool types.
+  It records its experiments in the **experiment registry**
+  and selects automatically only among alternatives already declared there.
+
+Both registries are append-only and stay in the fab.
+[ve-generation-service.md](ve-generation-service.md) specifies the outer loop and the registries' storage.
+It also covers onboarding new tool types and the release of log-derived content.
+
 ---
 
 ## 3. Core objects and their lifetimes
 
 | Object | Contents | Owner |
 |---|---|---|
-| **Profile** (immutable per version) | identity; capability set; catalogs (SVID/ECID/DVID/CEID/RPTID/ALID/RCMD with format, units, range, standard-name mapping, DVVAL-valid-at-CEID); processing state machine with guards; default reports/links/enables; reply rules and value generators; timing distributions; accepted quirk rules; pinned standard editions; provenance per rule; applicability (model, firmware range) | Profile Builder |
+| **Profile** (immutable per version) | identity; capability set; catalogs (SVID/ECID/DVID/CEID/RPTID/ALID/RCMD with format, units, range, standard-name mapping, DVVAL-valid-at-CEID); machines with guards and synchronising transitions, and slot components (§3.4); default reports/links/enables; reply rules and value generators; timing distributions; accepted quirk rules; pinned standard editions; layer and provenance per rule (§3.5); applicability (model, firmware range) | learners (§7), promoted by the gate (§9) |
+| **Tool delta** (immutable per version, learned) | the rules of one tool over its tool-type Profile: enabled options, constant values, the effects of its EAP configuration; provenance per rule | learners (§7), promoted on its own tool's suites (§9) |
 | **Instance Overlay** | site configuration: DeviceID, port, timers, timing scale, site EC defaults | test-env operator |
 | **Instance State** | see the lifetime matrix below | VE Runtime |
 | **Scenario** | external stimuli and *proposed* progression: operator actions, material, process-phase proposals, alarm triggers, fault overlays, trajectory references, clock mode | test author / replayer |
 | **Run Journal** (append-only) | every core admission in admission order: inputs, transaction outcomes, lifecycle observations, outbound outcomes, diagnostics, with scheduler time and (live) wall time | VE Runtime |
-| **Reproduction Bundle** (immutable after run) | launch inputs (Profile, overlay, runtime, seed, initial checkpoint, Scenario, clock mode) + Run Journal + final checkpoint | VE Runtime |
+| **Reproduction Bundle** (immutable after run) | launch inputs (Profile, tool delta, overlay, runtime, seed, initial checkpoint, Scenario, clock mode) + Run Journal + final checkpoint | VE Runtime |
 
 ### 3.1 Instance State lifetime matrix
 
@@ -89,8 +107,10 @@ Two governing ideas:
 | Communications state | → NOT COMMUNICATING | → configured initial | → NOT COMMUNICATING | → configured initial | → configured initial |
 | Control state (OFF-LINE / ON-LINE LOCAL / REMOTE) | kept | → Profile initial control state (E30 §3.3 transition 1) | restored | → Profile initial | → Profile initial |
 | Random stream | continues | continues | restored from checkpoint (stream position) | continues | restarts |
+| Object machines (carriers, process jobs, control jobs, substrates) | kept | open (phase 3) | restored from checkpoint | open (phase 3) | open (phase 3) |
+| Slot component state (§3.4) | continues | open (phase 3) | restored from checkpoint | open (phase 3) | restarts |
 
-Checkpoint = durable configuration + processing execution + alarm set + trace producers + random-stream position + scheduler time + variable-history window.
+Checkpoint = durable configuration + processing execution + alarm set + trace producers + object machines + slot component state + random-stream position + scheduler time + variable-history window.
 Transport transactions are never checkpointed.
 The configuration-commit boundary is "reply written" (§4.5): a host change is durable once its ACK reply is on the wire.
 
@@ -110,6 +130,52 @@ STOP/ABORT end the trajectory and cancel dependent scheduled work (§4.7).
 ### 3.3 Variable history and trajectories
 Per-variable timeline so S1F3, S6F1, S6F11 and S6F19 agree.
 Values come from a Scenario trajectory (conditioning input, labelled as such) when present, else from generators (§7.3).
+
+### 3.4 Machines and slots
+A Profile is a network of **concurrent extended timed state machines** joined by **synchronising transitions**,
+over a **shared variable store** (status variables, data variables, equipment constants),
+plus reply rules, value generators and timing distributions ([ve-decisions.md](ve-decisions.md) V-10).
+
+- **Machines**:
+  the GEM machines (communications, control, processing, alarm, spooling; [ve-gem-skeleton.md](ve-gem-skeleton.md)),
+  one machine per equipment module,
+  and **object machines** instantiated per object:
+  carriers (E87), process jobs (E40), control jobs (E94) and substrates (E90), with E39 object services.
+- **Synchronisation**:
+  a transition in one machine can require or trigger a transition in another,
+  e.g. a job step that moves a substrate and fires events in two modules.
+- **Slots**:
+  two parts may be filled by components that are not state machines:
+  the choice among concurrently enabled transitions (interleaving) and value generation.
+  A slot component chooses only among transitions the guards allow (§3.2),
+  writes values only through the variable history (§3.3),
+  and keeps its state in Instance State, so it is checkpointed (§3.1) and replayed (§10) like every other part.
+  Everything outside the slots stays an inspectable machine, so conformance can still be reported.
+
+Each message type has a place in this model:
+`S1F3` and `S2F13` read the variable store;
+`S6F11` is the output of a transition, labelled by its event ID and carrying a snapshot of variables;
+host commands (`S2F41`, `S3F17`, `S16F15`) are inputs that a guard accepts or rejects before later events follow;
+process progress is a spontaneous transition driven by the Scenario and the clock;
+alarm text is a template filled with live values.
+Splitting events per object (which substrate, which chamber) needs the report definitions,
+to know which report value is the object ID.
+
+### 3.5 Prior layers
+Every rule belongs to one layer and records its provenance:
+
+| Layer | Holds | Learned from |
+|---|---|---|
+| Standard | GEM and object-standard behaviour | SEMI standards, distilled |
+| Vendor / family | conventions shared by one vendor's tools, e.g. ID numbering, manual structure, common quirks | several tool types of that vendor |
+| Tool type | catalogs, machines, reports, timing (key: model, firmware range) | the vendor manual and logs of the type's tools |
+| Tool | the delta of one tool: enabled options, constant values, its EAP configuration's effects | that tool's logs |
+
+A lower layer overrides a higher one only with evidence.
+Logs of a type's tools train its tool-type layer together.
+The tool layer is the **tool delta**, a separate versioned artifact beside the Instance Overlay;
+the runtime loads a Profile, an optional tool delta and the overlay,
+and resolves them by the precedence in §5: the overlay first, then the most specific active layer.
 
 ---
 
@@ -279,6 +345,13 @@ Initial: COMMUNICATING, ON-LINE/REMOTE, EXECUTING; trace T1 {DSPER 1 s, REPGSZ 5
 | 9 | S2F41 START while EXECUTING | guard → `rejected` HCACK=2; trajectory unchanged | S2F42 written |
 | 10 | S2F41 START after completion, Profile says completion later | `accepted-pending` HCACK=4; trajectory starts on the completion CE | S2F42 written, later S6F11 |
 
+### 4.10 Slots in the event core
+The core evaluates guards first and hands a slot component (§3.4) only the transitions they enable;
+the component returns one of them and never adds a transition.
+A value slot is consulted where §3.3 falls back to generators, and its value enters the variable history like any other.
+A slot component draws randomness only from the instance's random stream,
+and its choices are core decisions, so offline replay recomputes and compares them (§10).
+
 ---
 
 ## 5. Skeleton: capability library plus reference model
@@ -286,12 +359,25 @@ Known rules:
 switchable capabilities;
 reference model only for conformance reporting;
 rule states `candidate | accepted | override | unresolved`;
-precedence overlay > override > accepted quirk > manual assertion > library default;
+precedence composed with the prior layers (§3.5) as below;
 validation exception path for accepted nonconformance;
 conformance and fidelity reported separately;
 ≤ 2 extension hooks;
 `gem: false` path.
 The capability boundaries and the validation exception path are open (phase 3).
+
+**Which rule applies.**
+A rule has a layer (its scope, §3.5) and a state (its authority).
+They compose in this order:
+
+1. Only rules in state `accepted` or `override` are active.
+   `candidate` and `unresolved` rules never are,
+   and an `unresolved` rule that affects scored behaviour still blocks promotion (§9).
+2. The Instance Overlay comes first; it stays the operator's site configuration (§3).
+3. Among active rules for the same behaviour, the most specific layer wins:
+   tool delta, then tool type, vendor, standard.
+   A lower-layer rule that contradicts a higher layer is a quirk, so it is active only once accepted on evidence.
+4. Within one layer: override, accepted quirk, manual assertion, library default.
 
 ---
 
@@ -307,6 +393,13 @@ The capability boundaries and the validation exception path are open (phase 3).
   a raw recorder on the EAP's connection, in a relay or on the network writes `raw-stream` packs of `wire-exact` records;
   the equipment gateway after decoding writes `decoded-message` packs from vantage `intermediary`, records `re-encoded`;
   the EAP SML converter writes `log` packs from the vantage where the EAP logged (usually `host`), records `reconstructed`.
+  The lasting source is the traffic log service, kept in its own repository ([ve-decisions.md](ve-decisions.md) V-12, V-14):
+  the equipment gateway sends it the traffic it carries,
+  and it packs that traffic as tracepack captures into the fab's object storage.
+  Converted EAP logs are the source until it runs, and stay a second vantage afterwards.
+- **Known unobserved sources**: every capture declares, beside its vantage,
+  the traffic it cannot see, e.g. "traffic the gateway originates toward the tool".
+  A learner must not read absence from a capture with a declared blind spot as absence of behaviour.
 - Transport-layer and malformed-frame evidence requires `wire-exact` records, whatever the pack's capture method;
   a `decoded-message` recorder that keeps the raw bytes of frames it failed to decode also writes `wire-exact` records.
 - **Scopes and where they live**: tracepack holds capture id, transport epoch and transaction identity
@@ -323,13 +416,41 @@ The capability boundaries and the validation exception path are open (phase 3).
 
 ---
 
-## 7. Profile Builder
-Spec Compiler (manual → cited assertions → validated candidate; floor: 50-row sample ≤ 2 errors, RCMD and processing tables 100 % reviewed),
-log miner (local CPU, incremental by epoch; candidates → accepted at ≥ 3 evidence across ≥ 2 captures plus human),
-value generators (trajectory → state-derived → request-ordered lookup → persistent-state lookup → producer-inherited ids → literal echo → enum → counter → constant → bounded numeric),
-conflict resolution (`unresolved` blocks promotion when it affects scored behaviour),
-provenance per rule.
-Stage order, miner algorithms and the candidate-to-accepted workflow beyond this summary are open (phase 3).
+## 7. Learners
+
+### 7.1 Contract
+Each part of a Profile or tool delta is produced by an exchangeable **learner** with one contract:
+
+- **Input**: an evidence slice and the priors of every layer above the target layer (§3.5).
+- **Output**: a fragment for one layer, each rule with its provenance, layer and a confidence.
+
+The outer loop chooses which learner fills each part, per layer ([ve-generation-service.md](ve-generation-service.md));
+that choice is possible only because learners are exchangeable and compared on the same suites (§8.5).
+
+### 7.2 Learners per Profile part
+
+| Profile part | Example learners |
+|---|---|
+| Catalogs (IDs, formats, names, units) | log catalog (`cmd/logcat`), manual extraction, identifier exports |
+| Reply rules | per-message templates with echo and lookup |
+| Value generators | the generator ladder (§7.3) |
+| Machine structure within a module | passive automata learning with the standard and manual state models as priors |
+| Synchronisation and interleaving | event-keyed module choice, object-machine products, sequence models in the slot (§3.4) |
+| Timing | per-transition delay distributions |
+| Quirks | deviation mining against the higher layers |
+
+Rules recorded for two learners before the pilot,
+which bind nothing until re-confirmed ([ve-decisions.md](ve-decisions.md) V-4):
+the Spec Compiler (manual → cited assertions → validated candidate; floor: 50-row sample ≤ 2 errors, RCMD and processing tables 100 % reviewed);
+the log miner (local CPU, incremental by epoch; candidates → accepted at ≥ 3 evidence across ≥ 2 captures plus human).
+
+### 7.3 Value generators
+Ladder: trajectory → state-derived → request-ordered lookup → persistent-state lookup → producer-inherited ids → literal echo → enum → counter → constant → bounded numeric.
+
+### 7.4 Conflicts and provenance
+Conflict resolution: `unresolved` blocks promotion when it affects scored behaviour (§9).
+Every rule carries its provenance and layer.
+Learner algorithms, the miner's stages and the candidate-to-accepted workflow beyond this summary are open (phase 3).
 
 ---
 
@@ -363,6 +484,81 @@ negative controls (a deliberately broken Profile must fail);
 Applicability comes from a **frozen pilot capability matrix**, not from the candidate Profile;
 each fixture family must execute at least once in the pilot.
 
+### 8.4 Two scores and the scored population
+- **Predictive score.**
+  The learned model is asked for the probability of each held-out observable event,
+  given the recorded history up to it (teacher forcing).
+  It measures how well the model explains the evidence, and it is cheap; learner selection uses it.
+- **Generated-run score.**
+  The executable artifact runs in the deterministic runtime against a closed input tape built from the held-out capture
+  (recorded host inputs and recorded transaction outcomes, §10),
+  choosing its own transitions, and its outputs are compared with what the tool recorded (the historical replay of §8.2).
+  It catches drift after the VE's first wrong choice, which teacher forcing hides.
+  Promotion requires both (§9).
+- **Scored population**: fixed by the suite, independent of any candidate:
+  the observable events (`E->H` primaries with their stream, function and event ID) and replies in the held-out window,
+  conditioned only on what precedes them in the capture and on the declared starting state.
+- **Coverage**: a candidate must give every scored event a probability above zero:
+  unseen IDs get probability through an explicit unknown-event allowance,
+  so a model cannot score well by declining to cover hard events.
+- **Timing** is scored per transition category the suite defines from observables (from one event ID to the next within a module),
+  not per edge a candidate learned.
+  Its acceptance rule is an effect size (the KS statistic within a tolerance), not a significance test;
+  and it is always labelled with its vantage: EAP-log timing is host-side timing, never wire timing.
+- **Metrics**:
+  mean log-likelihood per held-out event (primary, predictive score),
+  top-3 next-event accuracy,
+  the timing statistic above,
+  exact-match rate of replies and of generated events (generated-run score),
+  and the rate of unseen IDs, as a signal of missing data rather than a quality score.
+  They join the dimensions of §8.1, whose safeguards stay; no dimensions are summed into one score.
+
+### 8.5 Suites and their roles
+- **Kinds.**
+  *Time-split*: train on the earlier part of a capture set, test on a later, disjoint part.
+  *Tool-split*: train on some tools of a type and test on another; when a tool delta is evaluated,
+  both alternatives get the same prefix of the held-out tool's capture and are scored on a disjoint suffix.
+  *Type-split*: train every layer without one tool type, then onboard it; claims about new types need this kind.
+- **Three partitions.**
+  Every experiment and onboarding episode splits its evidence three ways;
+  the registry records each artifact's evidence lineage, so the split can be checked.
+  - *Shared training*: evidence that may shape shared assets (vendor and standard priors, learners, mined features).
+    The target tool or type of an evaluation is never in it.
+  - *Adaptation*: what the evaluated artifact may learn about its target:
+    the manual, identifier exports, and the declared training prefix or evidence schedule.
+  - *Assessment*: the held-out part.
+    It is excluded transitively from learning, from shared training and from the inputs of any proposal;
+    at scoring time the runtime conditions only on its recorded host inputs and the declared starting state (§8.4).
+- **Roles.**
+  A *selection* suite is used freely by the outer loop.
+  An *assessment* suite only confirms a selection already made,
+  and is never shown to learners, people or models proposing alternatives.
+- **Assessment use.**
+  - One *use* is one scoring of one artifact on an assessment partition;
+    uses are counted per partition, across all candidates, batches and experiments.
+  - A use returns only the pre-registered verdict and the scorecard, never per-event detail.
+  - Nothing learns from assessment results.
+    An alternative proposed after its proposer saw an assessment result is marked *assessment-informed*
+    and must be confirmed on a fresh partition.
+  - A partition is used up after its declared number of uses.
+    Its replacement must be evidence never used before for any purpose (new captures, or tools or types not yet seen);
+    re-slicing consumed evidence does not count.
+- **Independent unit.**
+  Each suite declares its independent unit (a tool, or a type).
+  Results are reported with their spread across those units,
+  and claims are scoped to the units tested: many events from two tools are two replications, not thousands.
+
+### 8.6 Suite maintenance
+- A suite version is frozen once used and is never edited.
+- Each suite declares its applicability: the model, firmware range, options and EAP configuration it represents.
+- A new version is cut when applicability changes (new firmware, options, configuration),
+  when an assessment suite has been used up,
+  or when new evidence makes the old one unrepresentative.
+- Old versions keep their results.
+  A suite whose scope is still supported keeps its regression obligation.
+  Moving a trend to a new version requires running both versions on the same artifacts (an overlap), or recording a trend break.
+- Who approves a new suite version is independent of the candidate it would judge.
+
 ---
 
 ## 9. Profile Registry and promotion gate
@@ -372,6 +568,22 @@ promotion requires absolute floors;
 ≥ 3 seeded runs for stochastic comparison;
 every promoted version runnable.
 Registry contents (versioning, rollback, applicability lookup) are open (phase 3).
+
+- **What is promoted.**
+  Every deployed effective artifact is immutable and reproducible:
+  its layer versions are pinned or materialised,
+  and a promotion never changes the behaviour of a version already promoted.
+  This covers tool-type Profiles, learned tool deltas and the combination the runtime loads.
+- **Gate.**
+  Promotion is deterministic and reproducible and needs both scores of §8.4 above their floors.
+  A learned tool delta is promoted on tool-split suites of its own tool (§8.5), against the tool-type Profile without it.
+  A change to a higher layer is an outer-loop change:
+  it produces new versions of the affected Profiles, must not regress any of them, and a person approves it.
+- **Divergence sources.**
+  Offline replay comes first; host test reports (failed fixtures, EAP developers) feed the same queue;
+  live shadow comparison through the gateway is a later option.
+
+The Profile registry and its storage are specified in [ve-generation-service.md](ve-generation-service.md).
 
 ---
 
@@ -394,16 +606,25 @@ Registry contents (versioning, rollback, applicability lookup) are open (phase 3
   → identical **canonical journal** (wall timestamps excluded).
   Recorded admissions are injected; derived decisions are recomputed and compared.
   Replaying a live run's journal in offline mode reproduces its core decisions.
+- **Slot components** (§3.4, §4.10) run under the same closed-tape determinism:
+  their state is in the checkpoint, their randomness comes from the seeded stream,
+  and their choices are derived decisions, recomputed and compared like any other.
 
 ---
 
-## 11. Fidelity stages
+## 11. Provenance stages and measured fidelity
+A rule's stage names where it comes from:
 R replay (baseline) → T templated + Instance State → M manual-derived → C calibrated timing and accepted quirks
 → S learned structure (only on measured need) → G hypotheses.
+A stage is provenance, never a fidelity claim.
+Fidelity is only ever a measured result of the Evaluator (§8):
+a Profile built from the manual alone is labelled *manual-derived* and carries no measured-fidelity claim
+until it passes the gate of §9.
 
 ## 12. Tooling and repositories
 `github.com/arloliu/veq` (runtime, schema, evaluator, registry, harness, converter at `cmd/eapconv`, `tools/miner/` Python);
-`github.com/arloliu/go-secs/tracepack`, a nested module of go-secs (format, codec, CLI; [ve-decisions.md](ve-decisions.md) R3-4).
+`github.com/arloliu/go-secs/tracepack`, a nested module of go-secs (format, codec, CLI; [ve-decisions.md](ve-decisions.md) R3-4);
+the traffic log service in its own repository (V-14).
 No go-secs core change is a pilot prerequisite.
 
 ## 13. Pilot gates

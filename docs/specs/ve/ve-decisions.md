@@ -275,3 +275,10 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   - The traffic log service that packs gateway traffic into object storage lives in its own repository;
     veq only reads its captures.
 
+## 2026-10-10 generation service placement (owner)
+
+- V-15 The parts of P1 that its §8 gave no home in the architecture
+  (evidence intake, onboarding a new type, thin evidence, the outer loop's objective and autonomy,
+  the registries and their storage, the initial hypotheses, governance and the release rule)
+  move to a new living spec, `docs/specs/ve/ve-generation-service.md`, so they outlive P1 when it closes.
+  The architecture keeps the Profile model, prior layers, learner contract, scores, suites and promotion gate.
