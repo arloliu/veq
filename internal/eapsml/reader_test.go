@@ -10,7 +10,7 @@ import (
 const sampleLog = `2026-01-02 08:00:00.0001 INFO - [Sender.Send]: Send Msg: [S1F3] /Header=[00-01-81-03-00-00-00-00-00-10] TID=16 APPID=EAP
 2026-01-02 08:00:00.0001 INFO - [Logger.PrintSECSMsgBody]: S1F3_QueryState: 'S1F3' W
     <L [2]
-        <U4 [1] 800007 >
+        <U4 [1] 1001 >
         <U4 [1] 999 >
      >
 .
@@ -84,7 +84,7 @@ func TestReadAll(t *testing.T) {
 				i, m.Dir, m.SxFy(), m.TID, m.WBit, m.Name, m.Flags, m.Item != nil, w)
 		}
 	}
-	if got := msgs[0].Time; !got.Equal(time.Date(2026, 1, 2, 8, 0, 0, 100_000, time.UTC)) {
+	if got := msgs[0].Time; !got.Equal(time.Date(2026, 1, 2, 8, 0, 0, 100000, time.UTC)) {
 		t.Errorf("time = %v", got)
 	}
 	if !strings.Contains(msgs[5].Body, "'yo'") {

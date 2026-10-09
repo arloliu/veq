@@ -38,7 +38,7 @@ func main() {
 	}
 
 	svids, ecids := newFormatTable(), newFormatTable()
-	var tools []*toolCatalog
+	tools := make([]*toolCatalog, 0, flag.NArg())
 	for _, arg := range flag.Args() {
 		tool, path, ok := strings.Cut(arg, "=")
 		if !ok {
@@ -52,9 +52,15 @@ func main() {
 		fmt.Println(tc.summary())
 	}
 
-	must(writeJSON(filepath.Join(*out, "catalog.json"), tools))
-	must(svids.writeCSV(filepath.Join(*out, "svid_formats.csv"), false))
-	must(ecids.writeCSV(filepath.Join(*out, "ecid_formats.csv"), true))
+	if err := writeJSON(filepath.Join(*out, "catalog.json"), tools); err != nil {
+		log.Fatal(err)
+	}
+	if err := svids.writeCSV(filepath.Join(*out, "svid_formats.csv"), false); err != nil {
+		log.Fatal(err)
+	}
+	if err := ecids.writeCSV(filepath.Join(*out, "ecid_formats.csv"), true); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("distinct (tool,SVID)=%d (tool,ECID)=%d\n", svids.len(), ecids.len())
 }
 
@@ -104,10 +110,4 @@ func writeJSON(path string, v any) error {
 	}
 
 	return os.WriteFile(path, append(b, '\n'), 0o600)
-}
-
-func must(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }

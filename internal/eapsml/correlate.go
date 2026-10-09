@@ -64,7 +64,9 @@ func opposite(d Direction) Direction {
 		return HostToEquip
 	case HostToEquip:
 		return EquipToHost
-	default:
+	case DirUnknown:
 		return DirUnknown
+	default:
+		return d
 	}
 }

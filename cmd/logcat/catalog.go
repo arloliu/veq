@@ -1,10 +1,12 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/arloliu/veq/internal/eapsml"
@@ -87,6 +89,8 @@ func (tc *toolCatalog) addMessage(m *eapsml.Message) {
 		a := bump(tc.alids, scalarAt(m.Item, 1))
 		a.Variants[scalarAt(m.Item, 0)]++
 		a.Related[scalarAt(m.Item, 2)]++
+	default:
+		// Other messages carry no identifier this catalog lists.
 	}
 }
 
@@ -98,8 +102,9 @@ func (tc *toolCatalog) addTransaction(tx *eapsml.Transaction) {
 	}
 	// <L RCMD <L <L CPNAME CPVAL>...>>
 	r := bump(tc.rcmds, scalarAt(p.Item, 0))
-	var names []string
-	for _, cp := range listAt(p.Item, 1) {
+	params := listAt(p.Item, 1)
+	names := make([]string, 0, len(params))
+	for _, cp := range params {
 		names = append(names, scalarAt(cp, 0))
 	}
 	r.Related[fmt.Sprint(names)]++
@@ -159,24 +164,24 @@ func sortedIDs(m map[string]*idCount) []*idCount {
 	for _, c := range m {
 		out = append(out, c)
 	}
-	sort.Slice(out, func(i, j int) bool { return idLess(out[i].ID, out[j].ID) })
+	slices.SortFunc(out, func(a, b *idCount) int { return idCompare(a.ID, b.ID) })
 
 	return out
 }
 
-// idLess orders numeric IDs numerically and puts them before non-numeric ones.
-func idLess(a, b string) bool {
+// idCompare orders numeric IDs numerically and puts them before non-numeric ones.
+func idCompare(a, b string) int {
 	x, errA := strconv.ParseUint(a, 10, 64)
 	y, errB := strconv.ParseUint(b, 10, 64)
 	switch {
 	case errA == nil && errB == nil:
-		return x < y
+		return cmp.Compare(x, y)
 	case errA == nil:
-		return true
+		return -1
 	case errB == nil:
-		return false
+		return 1
 	default:
-		return a < b
+		return strings.Compare(a, b)
 	}
 }
 
@@ -194,7 +199,7 @@ func sortedKeys(m map[string]bool) []string {
 	for k := range m {
 		ks = append(ks, k)
 	}
-	sort.Strings(ks)
+	slices.Sort(ks)
 
 	return ks
 }

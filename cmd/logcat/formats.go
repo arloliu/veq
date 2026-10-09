@@ -1,10 +1,11 @@
 package main
 
 import (
+	"cmp"
 	"encoding/csv"
 	"math"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -116,12 +117,12 @@ func (t *formatTable) writeCSV(path string, withSets bool) (err error) {
 	for k := range t.stats {
 		keys = append(keys, k)
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i][0] != keys[j][0] {
-			return keys[i][0] < keys[j][0]
+	slices.SortFunc(keys, func(a, b [2]string) int {
+		if c := strings.Compare(a[0], b[0]); c != 0 {
+			return c
 		}
 
-		return idLess(keys[i][1], keys[j][1])
+		return idCompare(a[1], b[1])
 	})
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -174,12 +175,12 @@ func byCount(m map[string]int) []string {
 	for k := range m {
 		ks = append(ks, k)
 	}
-	sort.Slice(ks, func(i, j int) bool {
-		if m[ks[i]] != m[ks[j]] {
-			return m[ks[i]] > m[ks[j]]
+	slices.SortFunc(ks, func(a, b string) int {
+		if c := cmp.Compare(m[b], m[a]); c != 0 {
+			return c
 		}
 
-		return ks[i] < ks[j]
+		return strings.Compare(a, b)
 	})
 
 	return ks

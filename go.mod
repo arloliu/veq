@@ -1,6 +1,6 @@
 module github.com/arloliu/veq
 
-go 1.26.7
+go 1.27.1
 
 require github.com/arloliu/go-secs v1.19.0
 

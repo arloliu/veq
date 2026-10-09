@@ -8,7 +8,7 @@
 //	2026-10-02 08:48:06.4475 INFO - [...]: Send Msg: [S1F3] /Header=[00-01-81-03-00-00-3A-A0-6A-1F] TID=2555 ...
 //	2026-10-02 08:48:06.4475 INFO - [...PrintSECSMsgBody]: S1F3_QueryState: 'S1F3' W
 //	    <L [1]
-//	        <U4 [1] 800007 >
+//	        <U4 [1] 1001 >
 //	     >
 //	.
 //
@@ -51,8 +51,10 @@ func (d Direction) String() string {
 		return "E->H"
 	case HostToEquip:
 		return "H->E"
-	default:
+	case DirUnknown:
 		return "?"
+	default:
+		return fmt.Sprintf("Direction(%d)", uint8(d))
 	}
 }
 
