@@ -57,6 +57,8 @@ A message appears as a header line, followed by a body line and the indented SML
 - The gateway can answer some primaries itself or originate messages toward the tool,
   depending on its deployment configuration (gateway maintainers);
   such messages never reach the log.
+  In one FDC mode they include the gateway's own data-collection traffic to the tool:
+  S1F3 polling, queries after events, and an `S1F1` ping every minute by default.
 
 ## 3. Connections in one log
 

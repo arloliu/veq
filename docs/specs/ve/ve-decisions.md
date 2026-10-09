@@ -135,6 +135,7 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   expected outcome = the FDC service attributes values by position (documented behaviour),
   so the harness asserts the mis-attribution is visible in the uploaded value names.
   Revisit when the FDC service side confirms.
+  (superseded by V-9)
 - R3-3 Generic-onboarding acceptance: design default K = 10 tool types after the pilot, pass rate ≥ 80 % with ≤ 2 hooks each.
   Placeholder for design purposes, not an implementation commitment.
 - R3-6 Pilot tools and EAP sample: provided later.
@@ -215,3 +216,16 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   Event and alarm reports carry no W-bit because the tools are configured not to ask for replies, not because the gateway acknowledges them.
   One EAP log can carry several equipment connections, so `cmd/logcat` separates them.
   Details are in `docs/specs/eapsml/eapsml-dialect.md`.
+
+## 2026-10-10 FDC fixture oracles (answers from the FDC service and equipment gateway maintainers)
+
+- V-9 The FDC service never sees raw SECS: the equipment gateway decodes each S6F11,
+  resolves every configured value by position within the report of the configured RPTID,
+  and sends named values, which the FDC service accepts by name without checking RPTID, value count or format.
+  Fixture (d) therefore targets the gateway's report-value resolution, observed at the FDC service;
+  its expected outcome is unchanged: the permuted values arrive under the configured names.
+  R3-2's attribution of positional mapping to the FDC service is superseded.
+  Fixture (c), answering R3-1: duplicate START opens a parallel context; END without START is ignored;
+  nothing in the FDC service ends a START without END,
+  and the gateway aborts it as a client timeout at its first sample tick after the task deadline.
+
