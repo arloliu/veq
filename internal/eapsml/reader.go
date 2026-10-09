@@ -112,6 +112,8 @@ type Message struct {
 	// Spans are the log entries the message was read from, in log order:
 	// the header entry, then the body or encrypted-body entry, as the log holds them.
 	Spans []Span
+	// textW: the body line itself carries " W", so the SML text is parsed with it.
+	textW bool
 }
 
 // SxFy returns the message's stream and function as "SxFy".
@@ -254,7 +256,8 @@ func (r *Reader) classify(ln string, t time.Time) {
 		}
 		m := r.takePending(b[2], b[3], t)
 		m.Name = b[1]
-		m.WBit = m.WBit || b[4] != ""
+		m.textW = b[4] != ""
+		m.WBit = m.WBit || m.textW
 		r.owner, r.kind = m, ownerBody
 
 		return
@@ -349,7 +352,9 @@ func (r *Reader) takePending(s, f string, t time.Time) *Message {
 func (r *Reader) finishBody(m *Message) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "'%s'", m.SxFy())
-	if m.WBit {
+	// Only a W in the source text is parsed; a W from the header alone is metadata,
+	// so an invalid one surfaces when the message is built, not here.
+	if m.textW {
 		sb.WriteString(" W")
 	}
 	sb.WriteByte('\n')

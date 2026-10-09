@@ -54,8 +54,8 @@ func trimLineEnd(line []byte) []byte {
 }
 
 // parseLocal parses a log timestamp as local time in loc.
-// A local time that occurs twice, or never, around a daylight-saving change
-// resolves to the earlier of its readings and is reported uncertain.
+// A local time that occurs twice or never in a daylight-saving change is reported uncertain.
+// It resolves to the earlier of its readings.
 func parseLocal(s string, loc *time.Location) (time.Time, bool, error) {
 	naive, err := time.Parse(tsLayout, s)
 	if err != nil {

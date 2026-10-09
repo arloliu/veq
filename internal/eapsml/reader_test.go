@@ -164,3 +164,18 @@ func TestReadDevice(t *testing.T) {
 		}
 	}
 }
+
+// TestHeaderWIsNotParsed keeps an invalid W from the header out of the SML parse:
+// the body parses, and the W stays on the message for the builder to reject.
+func TestHeaderWIsNotParsed(t *testing.T) {
+	const log = "2026-01-02 08:00:00.0000 INFO - [Sender.Reply]: Send Msg: [S6F12] /Header=[00-01-86-0C-00-00-00-00-00-50] TID=80\n" +
+		"2026-01-02 08:00:00.0000 INFO - [Sender.Reply]: Ack: 'S6F12'\n" +
+		"    <B [1] 0x00 >\n.\n"
+	msgs, err := ReadAll(strings.NewReader(log), time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 1 || msgs[0].Item == nil || !msgs[0].WBit || msgs[0].Flags != 0 {
+		t.Fatalf("got %+v, want one parsed S6F12 with W", msgs[0])
+	}
+}
