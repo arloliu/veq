@@ -43,8 +43,7 @@ A message appears as a header line, followed by a body line and the indented SML
 - One EAP version logs a host reply with its primary's header
   (an `S6F6` logged with a header reading `S6F5` and the W-bit set);
   the other logs the reply's own header.
-  veq therefore reads the W-bit and the session ID from the header
-  only when the header names the same message as the body line,
+  veq therefore reads the W-bit and the session ID from the header only when the header names the same message as the body line,
   and otherwise takes the W-bit from the body line and leaves the session ID unknown.
 - `DEVICEID=n`, where logged, is the EAP's number for the equipment connection.
   It can differ from the header's session ID:
@@ -84,11 +83,27 @@ and a reply belongs to its primary's connection.
 
 ## 5. Mapping to tracepack
 
-The converter (`cmd/eapconv`, not yet written) stores the log as a tracepack `log` capture with `reconstructed` fidelity.
-It follows the tracepack specification (go-secs `docs/specs/tracepack/`):
+The converter (`cmd/eapconv`, not yet written) writes tracepack `log` captures,
+following the tracepack specification (go-secs `docs/specs/tracepack/`) at the version veq pins (V-14).
 
-- System Bytes, Session ID and W come only from a logged header that the dialect shows to be this message's wire header;
+- **One capture per equipment connection** found in the log (§3),
+  each with its own tool and device identity:
+  transaction keys and epochs are scoped per capture, so two connections in one capture would mix their System Bytes.
+  The rule that maps a device token or a header session ID to a capture is part of this dialect
+  and is recorded in the capture's source-dialect metadata;
+  the token itself stays in the source text.
+- **Pack metadata**: capture method `log`, vantage `host`, the log's time zone as time source,
+  and the source dialect and source references, which a `log` capture requires.
+- **Records**: fidelity `reconstructed`;
+  decode status `reconstructed-ok`, or `parse-failed` or `build-rejected` for what cannot be rebuilt,
+  the only statuses a log writer may store.
+- **Identities**: System Bytes, Session ID and W come only from a logged header that this dialect shows to be the message's own wire header (§2);
   otherwise their field-validity bits stay clear and the record is marked `correlation-incomplete`.
-- The TID has no field in the format; it stays in the entry's source text.
-- Nothing is dropped:
-  non-wire bodies, encrypted bodies and unparsable bodies become annotations covering their source lines.
+  The log has no connect or accept lines, so every record is in epoch 0, which the format also marks `correlation-incomplete`.
+  The TID has no field; it stays in the entry's source text.
+- **Nothing is dropped**:
+  non-wire bodies, encrypted bodies and unparsable entries become `unparsed-entry` annotations with `parse-failed`.
+  How the format's rule that every input byte belongs to exactly one record or annotation applies
+  when one log yields several captures is being confirmed with the tracepack maintainers.
+- **Reproducible output**: the converter passes the clock and the capture identifiers explicitly,
+  so the same log always yields the same bytes.

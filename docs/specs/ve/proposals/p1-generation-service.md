@@ -143,7 +143,7 @@ The learned tool delta is a separate, versioned artifact.
 ### 4.1 Evidence intake
 
 - Evidence arrives as tracepack captures, in batches, and the loop runs per batch, incrementally by transport epoch.
-- The lasting source is a **traffic log service**:
+- The lasting source is a **traffic log service**, kept in its own repository (V-14):
   the equipment gateway sends the traffic it carries to it,
   and it packs the traffic as tracepack captures into the fab's object storage,
   where they serve learning and troubleshooting alike (one of tracepack's design goals).

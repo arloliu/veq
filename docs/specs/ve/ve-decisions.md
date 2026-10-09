@@ -199,6 +199,7 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   a `done` phase needs a commit or PR reference,
   and `docs/ROADMAP.md` is the single index of active plans.
 - V-6 tracepack dependency: veq pins `github.com/arloliu/go-secs/tracepack` at a pseudo-version of go-secs main (currently 146846a), not v0.1.0;
+  (the pin is superseded by V-14)
   System Bytes, Session ID and W are taken only from a logged header the dialect proves to be the wire header;
   non-wire and unparsable entries become annotations, never dropped.
 - V-7 Evidence provenance: veq reuses the tracepack provenance fields instead of a VE-specific enum:
@@ -262,4 +263,15 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   after four rounds of external review, the last with no remaining finding.
   It becomes the input to phases 2 and 3 of the re-derivation:
   its §8 changes are applied to the living documents, and phase 2 sets the numbers it leaves open.
+
+## 2026-10-10 tracepack v0.2.0 (owner)
+
+- V-14 veq pins `github.com/arloliu/go-secs/tracepack` at v0.2.0 (format 1.0), the first release that fits veq;
+  tracepack is pre-1.0, so the pin is exact and every upgrade reads its changelog.
+  tracepack depends on go-secs v2, so veq moved from go-secs v1 to v2.6.0.
+  V-6's rules on header-derived identities and annotations stand.
+  - The EAP log converter writes one capture per equipment connection found in a log,
+    each with its own tool and device identity; the rule that maps a log's device token or session ID to a capture is part of the dialect.
+  - The traffic log service that packs gateway traffic into object storage lives in its own repository;
+    veq only reads its captures.
 
