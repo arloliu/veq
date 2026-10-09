@@ -12,5 +12,6 @@ Documents here follow `.agents/rules/450-doc-lifecycle.md`.
 | `ve-decisions.md` | living | current | owner decisions, append-only |
 | `ve-architecture.md` | living | draft | v4.2 architecture written before pilot data; the starting point of the re-derivation |
 | `ve-gem-skeleton.md` | living | current | GEM behaviour a passive VE must exhibit, distilled from SEMI E5, E30, E37 and E37.1 |
+| `proposals/p1-generation-service.md` | finite | active | a self-learning VE generation service: two learning loops, prior layers, experiment registry |
 
-Next proposal ID: P1.
+Next proposal ID: P2.

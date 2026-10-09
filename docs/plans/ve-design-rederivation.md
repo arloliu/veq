@@ -39,3 +39,4 @@ Work (veq):
 Done when `ve-evidence.md` is `current` and every input above is obtained or recorded as unavailable.
 
 Later phases are detailed when they start.
+Proposal P1 (`docs/specs/ve/proposals/p1-generation-service.md`, accepted) is an input to phases 2 and 3.

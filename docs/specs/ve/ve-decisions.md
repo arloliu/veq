@@ -229,3 +229,37 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   nothing in the FDC service ends a START without END,
   and the gateway aborts it as a client timeout at its first sample tick after the task deadline.
 
+## 2026-10-10 generation service (grilling rounds 1–4; owner accepted all recommendations)
+
+- V-10 The VE generation service is designed as two learning loops,
+  written up in `docs/specs/ve/proposals/p1-generation-service.md`,
+  which feeds phases 2 and 3 of the re-derivation;
+  pilot gates and budgets are re-derived in phase 2 (G2-16 figures as reference only).
+  The VE model becomes concurrent timed state machines with synchronising transitions,
+  and E87, E40, E94, E39 and E90 object machines become skeleton capabilities, reversing the architecture's non-goal.
+  Profiles learn in four prior layers (standard, vendor/family, tool type, tool delta);
+  the outer loop minimises onboarding cost and selects automatically only among declared alternatives.
+  G1-8 is re-confirmed: logs stay in the fab, LLMs are advisory, promotion is deterministic, no probing of production tools.
+
+## 2026-10-10 generation service review (owner)
+
+- V-11 Two choices made while revising the generation-service proposal after its first external review:
+  - Onboarding cost has two dimensions, evidence and person-hours, and no weighting between them:
+    the outer loop adopts an alternative automatically
+    only if neither dimension gets worse beyond its tolerance and at least one improves;
+    every other outcome goes to a person.
+  - The release rule for log-derived content leaving the fab is set in the proposal now, not deferred:
+    released and withheld categories, unclassified content withheld,
+    a person the owner names approves new categories and templates, and every release is recorded.
+- V-12 Storage for the generation service:
+  artifacts (Profiles, tool deltas, suites, lineage manifests) are content-addressed files
+  in the fab's S3-compatible object storage (MinIO);
+  registry records go to a transactional database already run in the fab, MariaDB by default,
+  made append-only by denying the service updates and deletes.
+  The lasting evidence source is a traffic log service that receives traffic from the equipment gateway
+  and packs it as tracepack captures into the same object storage, for learning and troubleshooting.
+- V-13 Proposal P1 (`docs/specs/ve/proposals/p1-generation-service.md`) is accepted
+  after four rounds of external review, the last with no remaining finding.
+  It becomes the input to phases 2 and 3 of the re-derivation:
+  its §8 changes are applied to the living documents, and phase 2 sets the numbers it leaves open.
+
