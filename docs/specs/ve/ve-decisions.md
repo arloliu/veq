@@ -282,3 +282,13 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   the registries and their storage, the initial hypotheses, governance and the release rule)
   move to a new living spec, `docs/specs/ve/ve-generation-service.md`, so they outlive P1 when it closes.
   The architecture keeps the Profile model, prior layers, learner contract, scores, suites and promotion gate.
+
+## 2026-10-10 multi-capture conversion (owner, via the tracepack maintainers)
+
+- V-16 A converter run over a log of several equipment connections follows tracepack specification 2.29 (go-secs G5-186),
+  which extends V-14's one capture per equipment connection:
+  each capture holds only its own connection's lines;
+  lines of no connection go into one more capture whose tool ID is the EAP's configured identity, distinct from every equipment's;
+  coverage is counted over the whole run, with no byte in two captures.
+  The pin stays at v0.2.0 until a release ships 2.29.
+  Details are in `docs/specs/eapsml/eapsml-dialect.md` §5.

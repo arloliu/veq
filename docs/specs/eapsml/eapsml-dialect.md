@@ -85,6 +85,8 @@ and a reply belongs to its primary's connection.
 
 The converter (`cmd/eapconv`, not yet written) writes tracepack `log` captures,
 following the tracepack specification (go-secs `docs/specs/tracepack/`) at the version veq pins (V-14).
+The multi-capture rules below are those of specification 2.29 (go-secs decisions G5-186 and G5-187);
+the pinned v0.2.0 still reports 2.28, and the rules apply to the converter from the start (V-16).
 
 - **One capture per equipment connection** found in the log (§3),
   each with its own tool and device identity:
@@ -92,8 +94,18 @@ following the tracepack specification (go-secs `docs/specs/tracepack/`) at the v
   The rule that maps a device token or a header session ID to a capture is part of this dialect
   and is recorded in the capture's source-dialect metadata;
   the token itself stays in the source text.
+  Each capture holds only its own connection's entries and lines.
+- **Lines of no connection**:
+  lines the rules of §3 assign to no equipment connection, such as the EAP's own scenario and message-bus lines,
+  go into one more capture, written only if there are any.
+  Its tool ID is the EAP's identity as configured in the converter, and it must differ from every equipment's tool ID.
+  The converter checks that, since each tracepack writer sees only its own capture.
+- **Capture identity**: one capture ID per tool ID per converter run per set of source files.
 - **Pack metadata**: capture method `log`, vantage `host`, the log's time zone as time source,
   and the source dialect and source references, which a `log` capture requires.
+  The capture of lines of no connection has the same metadata.
+  Every pack of every capture of a run lists the run's source files as the same source references in the same order (go-secs G5-187),
+  so a source index names the same file in every capture.
 - **Records**: fidelity `reconstructed`;
   decode status `reconstructed-ok`, or `parse-failed` or `build-rejected` for what cannot be rebuilt,
   the only statuses a log writer may store.
@@ -103,7 +115,9 @@ following the tracepack specification (go-secs `docs/specs/tracepack/`) at the v
   The TID has no field; it stays in the entry's source text.
 - **Nothing is dropped**:
   non-wire bodies, encrypted bodies and unparsable entries become `unparsed-entry` annotations with `parse-failed`.
-  How the format's rule that every input byte belongs to exactly one record or annotation applies
-  when one log yields several captures is being confirmed with the tracepack maintainers.
+  Coverage is counted over the whole run:
+  each input byte range is in exactly one record or annotation of exactly one capture,
+  and no capture repeats another's bytes as annotations.
+  Decode-status counts are reported per capture.
 - **Reproducible output**: the converter passes the clock and the capture identifiers explicitly,
   so the same log always yields the same bytes.
