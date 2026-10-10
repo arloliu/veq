@@ -35,6 +35,14 @@ type config struct {
 	out      string            // root of the segment keys
 	now      time.Time         // writer start time; zero means the time of the last entry
 	version  string            // converter version, in recorder and in every derived identifier
+	deps     buildDeps         // library versions, in every derived identifier their output reaches
+}
+
+// buildDeps are the versions of the libraries that decide the output's bytes.
+type buildDeps struct {
+	writer     string // writer tag, tracepack/<version>
+	classifier string // go-secs version, whose sml.Parse classifies message bodies
+	codec      string // version of the zstd implementation that compresses blocks
 }
 
 // source is one input file with its identity.
@@ -81,10 +89,11 @@ func run(ctx context.Context, cfg *config) (*result, error) {
 	if err := os.MkdirAll(cfg.out, 0o750); err != nil { //nolint:gosec // the operator names the output directory
 		return nil, err
 	}
-	sink, err := tracepack.NewDirSink(cfg.out, "")
+	dir, err := tracepack.NewDirSink(cfg.out, "")
 	if err != nil {
 		return nil, err
 	}
+	sink := &keepSink{inner: dir, root: cfg.out}
 	now := cfg.now
 	if now.IsZero() {
 		now = sv.last
@@ -253,7 +262,7 @@ func packMeta(cfg *config, srcs []source) tracepack.PackMeta {
 		CaptureMethod:      tracepack.CaptureMethodLog,
 		Vantage:            tracepack.VantageHost,
 		Recorder:           recorder,
-		Writer:             writerTag(),
+		Writer:             cfg.deps.writer,
 		Classifiers:        []string{recorder + " sml.Parse"},
 		TimeSource:         tracepack.TimeSourceSourceLog,
 		SourceTZ:           &cfg.tz,
@@ -291,7 +300,7 @@ func (cv *converter) convertFile(ctx context.Context, s source, loc *time.Locati
 		if conn != "" {
 			toolID = cv.cfg.tools[conn]
 		}
-		c := cv.capture(toolID, m)
+		c := cv.capture(toolID, conn, m)
 		if r, ok := cv.dataRecord(m); ok {
 			return c.add(ctx, &r, spanBytes(m.Spans))
 		}
@@ -310,22 +319,39 @@ func (cv *converter) convertFile(ctx context.Context, s source, loc *time.Locati
 	})
 }
 
-// capture returns the capture of toolID, starting it at m's time when it has none yet.
-func (cv *converter) capture(toolID string, m *eapsml.Message) *capture {
+// capture returns the capture of toolID, starting it at m's time when it has none yet;
+// conn is the connection its messages come from, empty for the lines of no connection.
+func (cv *converter) capture(toolID, conn string, m *eapsml.Message) *capture {
 	if c, ok := cv.captures[toolID]; ok {
 		return c
 	}
 	t, _ := cv.timeOf(m.Spans[0])
-	refs := make([]string, 0, len(cv.srcs)+2)
-	for _, s := range cv.srcs {
-		refs = append(refs, s.ref)
-	}
-	refs = append(refs, toolID, cv.cfg.version)
-	c := newCapture(toolID, deriveID(t, append([]string{"capture"}, refs...)...), cv.meta, cv.sink, cv.now)
+	c := newCapture(toolID, cv.captureID(toolID, conn, t), cv.meta, cv.sink, cv.now, cv.cfg.deps.codec)
 	cv.captures[toolID] = c
 	cv.order = append(cv.order, toolID)
 
 	return c
+}
+
+// captureID derives the id of toolID's capture, which starts at t,
+// from the content of every source file in order and every setting that interprets them,
+// so a re-run over the same files with the same settings reuses it (tracepack decision G5-192).
+// recorder_instance_id is among them because every pack of a capture carries the same one.
+func (cv *converter) captureID(toolID, conn string, t time.Time) tracepack.UUID {
+	if conn == "" {
+		conn = "none"
+	}
+	parts := make([]string, 0, len(cv.srcs)+8)
+	parts = append(parts, "capture")
+	for _, s := range cv.srcs {
+		parts = append(parts, "source_ref="+s.ref)
+	}
+	parts = append(parts,
+		"tool_id="+toolID, "connection="+conn, "source_dialect="+dialect, "source_tz="+cv.cfg.tz,
+		"recorder_instance_id="+cv.cfg.instance.String(),
+		"converter="+cv.cfg.version, "classifier="+cv.cfg.deps.classifier)
+
+	return deriveID(t, parts...)
 }
 
 // dataRecord rebuilds m as a data record, or reports false when m cannot be one.

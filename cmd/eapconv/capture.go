@@ -4,11 +4,19 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/arloliu/go-secs/tracepack"
+)
+
+// The writer options of every segment, which its pack_id covers.
+const (
+	segmentCodec          = tracepack.CodecZstd
+	segmentBlockThreshold = tracepack.DefaultBlockThreshold
 )
 
 // errUnmapped reports connections found in the logs that no -tool flag names.
@@ -23,6 +31,7 @@ type capture struct {
 	meta    tracepack.PackMeta // template; period, seq_start and pack identity are set per segment
 	sink    tracepack.SegmentSink
 	now     func() time.Time
+	codec   string // version of the zstd implementation
 	nextSeq uint64
 	lastTS  int64
 	seg     *segment
@@ -40,15 +49,16 @@ type segment struct {
 type captureStats struct {
 	Records  uint64                            // records, boundaries included
 	Segments int                               // segment packs written
+	Reused   int                               // of them, packs whose key already held the same bytes
 	Bytes    int64                             // source bytes its records and annotations cover
 	Status   map[tracepack.DecodeStatus]uint64 // records per decode_status, boundaries excluded
 }
 
-func newCapture(toolID string, id tracepack.UUID, meta tracepack.PackMeta, sink tracepack.SegmentSink, now func() time.Time) *capture {
+func newCapture(toolID string, id tracepack.UUID, meta tracepack.PackMeta, sink tracepack.SegmentSink, now func() time.Time, codec string) *capture {
 	meta.ToolID = toolID
 
 	return &capture{
-		toolID: toolID, id: id, meta: meta, sink: sink, now: now,
+		toolID: toolID, id: id, meta: meta, sink: sink, now: now, codec: codec,
 		stats: captureStats{Status: map[tracepack.DecodeStatus]uint64{}},
 	}
 }
@@ -124,9 +134,12 @@ func (c *capture) append(ctx context.Context, r *tracepack.Record) error {
 func (c *capture) open(ctx context.Context, hour int64) error {
 	start := time.Unix(hour*3600, 0).UTC()
 	end := start.Add(time.Hour)
-	packID := deriveID(start, "pack", c.id.String(), fmt.Sprint(c.nextSeq))
 	meta := c.meta
 	meta.PeriodStart, meta.PeriodEnd, meta.SeqStart = start.UnixNano(), end.UnixNano(), c.nextSeq
+	packID, err := c.packID(hour, &meta)
+	if err != nil {
+		return fmt.Errorf("%s: pack id: %w", c.toolID, err)
+	}
 	file, err := c.sink.Create(ctx, tracepack.SegmentInfo{
 		ToolID: c.toolID, CaptureID: c.id, PackID: packID, SeqFirst: c.nextSeq,
 		Hour: hour, PeriodStart: start, PeriodEnd: end,
@@ -135,13 +148,14 @@ func (c *capture) open(ctx context.Context, hour int64) error {
 		return fmt.Errorf("%s: create segment: %w", c.toolID, err)
 	}
 	w, err := tracepack.NewWriter(file, tracepack.WriterOptions{
-		Meta:      &meta,
-		Facts:     tracepack.PackFacts{AnyClassified: true},
-		Codec:     tracepack.CodecZstd,
-		Sync:      file,
-		PackID:    packID,
-		CaptureID: c.id,
-		Now:       c.now,
+		Meta:           &meta,
+		Facts:          tracepack.PackFacts{AnyClassified: true},
+		Codec:          segmentCodec,
+		BlockThreshold: segmentBlockThreshold,
+		Sync:           file,
+		PackID:         packID,
+		CaptureID:      c.id,
+		Now:            c.now,
 	})
 	if err != nil {
 		_ = file.Abort()
@@ -162,6 +176,9 @@ func (c *capture) finish(ctx context.Context) error {
 	if err := s.file.Commit(ctx); err != nil {
 		return fmt.Errorf("%s: commit segment: %w", c.toolID, err)
 	}
+	if f, ok := s.file.(*keepFile); ok && f.reused {
+		c.stats.Reused++
+	}
 	c.seg = nil
 
 	return nil
@@ -180,6 +197,28 @@ func boundary(kind tracepack.BoundaryKind, ts int64) (tracepack.Record, error) {
 		Fidelity: tracepack.FidelityNotApplicable, DecodeStatus: tracepack.DecodeStatusNotApplicable,
 		Quality: tracepack.QualityCaptureBoundary, Payload: payload,
 	}, nil
+}
+
+// packID derives the id of the pack of hour whose metadata is meta from everything its bytes depend on (tracepack decision G5-192):
+// its records, through the capture id and the hour and first seq that divide the capture into packs;
+// its metadata, writer tag included; the writer's start time and options; and the codec's implementation.
+func (c *capture) packID(hour int64, meta *tracepack.PackMeta) (tracepack.UUID, error) {
+	enc, err := meta.MarshalBinary()
+	if err != nil {
+		return tracepack.UUID{}, err
+	}
+	sum := sha256.Sum256(enc)
+
+	return deriveID(time.Unix(hour*3600, 0), "pack",
+		"capture_id="+c.id.String(),
+		"hour="+strconv.FormatInt(hour, 10),
+		"seq_first="+strconv.FormatUint(meta.SeqStart, 10),
+		"pack_meta_sha256="+hex.EncodeToString(sum[:]),
+		"writer_start_utc_ns="+strconv.FormatInt(c.now().UnixNano(), 10),
+		"codec="+segmentCodec.String()+" "+c.codec,
+		"block_threshold="+strconv.Itoa(segmentBlockThreshold),
+		"validation=on", "facts=any_classified",
+	), nil
 }
 
 // deriveID returns a UUIDv7 whose time is t's millisecond and whose other bits hash the parts,

@@ -90,7 +90,8 @@ and a reply belongs to its primary's connection.
 
 The converter `cmd/eapconv` writes tracepack `log` captures,
 following the tracepack specification (go-secs `docs/specs/tracepack/`) at the version veq pins (V-14).
-The multi-capture rules below are those of specification 2.29 (go-secs decisions G5-186 and G5-187);
+The multi-capture rules below are those of specification 2.29 (go-secs decisions G5-186 and G5-187),
+and the output and identity rules those of 2.31 (G5-192 and G5-193, V-19);
 the pinned v0.2.0 still reports 2.28, and the rules apply to the converter from the start (V-16).
 One run converts an ordered set of log files.
 
@@ -136,14 +137,24 @@ One run converts an ordered set of log files.
   each input byte range is in exactly one record or annotation of exactly one capture,
   and no capture repeats another's bytes as annotations.
   The converter reports, per capture, its records per decode status and the source bytes they cover.
-- **Output**: segment packs, one per run of a capture's records in one UTC hour, under the store's staging keys;
-  the start and stop boundaries sit at the times of the capture's first and last records.
-  Whether a converter should write these segments, or archive packs as storage specification §7 item 9 allows,
-  awaits the tracepack owner.
-- **Reproducible output**: capture and pack IDs are UUIDv7 values whose time is the capture's first record or the segment's hour,
-  and whose other bits hash the source references, the tool ID and the converter version;
-  the writer start time is the last entry's unless the operator gives one.
-  So the same files always yield the same bytes.
+- **Output**: generation-0 segment packs, one per run of a capture's records in one UTC hour, under the store's staging keys (G5-193);
+  seq runs across the whole capture,
+  and the start and stop boundaries sit once per capture, at the times of its first and last records.
+- **Reproducible output**: the writer start time is the last entry's unless the operator gives one,
+  so the same files and settings always yield the same bytes, under the same IDs (G5-192).
+  Capture and pack IDs are UUIDv7 values whose time is the capture's first record or the segment's hour,
+  and whose other bits hash what they stand for:
+  - a capture ID, everything its records depend on:
+    the source references, which carry each file's content digest, in order;
+    the tool ID and the connection it was mapped from, or none for the EAP's capture;
+    the source dialect, the time zone, the recorder instance ID, which every pack of a capture shares,
+    and the converter and classifier versions;
+  - a pack ID, everything its bytes depend on:
+    the capture ID, the hour and first seq that divide the capture into packs,
+    the digest of the pack metadata, which holds the writer tag,
+    the writer start time and options, and the version of the zstd implementation.
+
   The converter version is the module version, else the VCS revision of the build, marked when the tree was modified;
   a modified tree hashes as its base revision.
-  Whether a re-run may reuse a capture ID also awaits the tracepack owner.
+- **No overwrite**: a pack whose key already holds the same bytes is left in place and counted as already present;
+  one whose key holds different bytes fails the run, and the existing file stays.

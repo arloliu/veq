@@ -310,3 +310,15 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   The third peer, which exchanges stream 99 with the EAP, is labelled an FDC connection and left out for now;
   the converter still writes its capture, as it writes every connection's.
   Details are in `docs/specs/eapsml/eapsml-dialect.md` §3.
+
+## 2026-10-10 converter output and identities (owner, via the tracepack maintainers)
+
+- V-19 `cmd/eapconv` follows tracepack specification 2.31 (go-secs G5-192 and G5-193), which answers the two questions V-16 left open:
+  - a converter writes generation-0 segment packs, one capture and one UTC hour each, outside the recorder's flush and recovery contract;
+  - a re-run over the same files with the same settings reuses its capture IDs,
+    derived from each source file's content and every setting that interprets it,
+    and reuses a pack ID only for byte-identical output, derived from everything the pack's bytes depend on;
+  - a pack whose key already holds different bytes fails the run and is never overwritten.
+
+  G5-192 replaces G5-186's one capture ID per tool per run with one per tool per source file set per logical conversion.
+  Details are in `docs/specs/eapsml/eapsml-dialect.md` §5.

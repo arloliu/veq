@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/arloliu/go-secs/tracepack"
 )
@@ -54,7 +55,8 @@ func testConfig(t *testing.T, dir string) *config {
 
 	return &config{
 		files: []string{log}, tools: map[string]string{"deviceid=1": "TOOL-A", "deviceid=2": "TOOL-B"},
-		eapID: "EAP-1", tz: "UTC", instance: id, out: filepath.Join(dir, "out"), version: "test",
+		eapID: "EAP-1", tz: "UTC", instance: id, out: filepath.Join(dir, "out"),
+		version: "test", deps: buildDeps{writer: "tracepack/test", classifier: "test", codec: "test"},
 	}
 }
 
@@ -173,6 +175,104 @@ func TestRunIsReproducible(t *testing.T) {
 	}
 }
 
+func TestRunReusesIdenticalPacks(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t, t.TempDir())
+	if _, err := run(t.Context(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	before := readPacks(t, cfg.out)
+	res, err := run(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("re-run into the same directory: %v", err)
+	}
+	reused := 0
+	for _, c := range res.captures {
+		reused += c.stats.Reused
+	}
+	if reused != len(before) {
+		t.Errorf("reused %d packs, want all %d", reused, len(before))
+	}
+	after := readPacks(t, cfg.out)
+	if len(after) != len(before) {
+		t.Fatalf("%d packs, then %d", len(before), len(after))
+	}
+	for path, b := range before {
+		if !bytes.Equal(after[path], b) {
+			t.Errorf("%s changed", path)
+		}
+	}
+}
+
+func TestRunRefusesToOverwriteADifferentPack(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t, t.TempDir())
+	if _, err := run(t.Context(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	path := packFiles(t, cfg.out)[0]
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b[len(b)/2] ^= 0xff
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t.Context(), cfg); !errors.Is(err, errPackConflict) {
+		t.Fatalf("err = %v, want errPackConflict", err)
+	}
+	kept, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(kept, b) {
+		t.Errorf("the existing pack was replaced (err %v)", err)
+	}
+}
+
+// TestIDsCoverTheirInputs checks that each input a capture's records depend on changes its capture_id,
+// that each one only a pack's bytes depend on changes the pack_id alone,
+// and that a capture whose records and packs an input does not reach keeps both.
+func TestIDsCoverTheirInputs(t *testing.T) {
+	t.Parallel()
+	baseCaptures, basePacks := runIDs(t, testConfig(t, t.TempDir()))
+	tests := []struct {
+		name          string
+		change        func(*config)
+		captureChange bool
+		untouched     string // tool id of a capture the change does not reach, if any
+	}{
+		{"time zone", func(c *config) { c.tz = "Asia/Tokyo" }, true, ""},
+		{"tool attribution", func(c *config) {
+			c.tools = map[string]string{"deviceid=1": "TOOL-B", "deviceid=2": "TOOL-A"}
+		}, true, "EAP-1"},
+		{"instance", func(c *config) { c.instance[15]++ }, true, ""},
+		{"converter version", func(c *config) { c.version = "other" }, true, ""},
+		{"classifier version", func(c *config) { c.deps.classifier = "other" }, true, ""},
+		{"writer version", func(c *config) { c.deps.writer = "tracepack/other" }, false, ""},
+		{"codec version", func(c *config) { c.deps.codec = "other" }, false, ""},
+		{"writer start time", func(c *config) { c.now = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC) }, false, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := testConfig(t, t.TempDir())
+			tt.change(cfg)
+			captures, packs := runIDs(t, cfg)
+			for tool, id := range captures {
+				want := tt.captureChange && tool != tt.untouched
+				if changed := id != baseCaptures[tool]; changed != want {
+					t.Errorf("%s capture_id changed = %v, want %v", tool, changed, want)
+				}
+			}
+			for id, tool := range packs {
+				want := tool != tt.untouched
+				if changed := basePacks[id] == ""; changed != want {
+					t.Errorf("%s pack_id %s changed = %v, want %v", tool, id, changed, want)
+				}
+			}
+		})
+	}
+}
+
 func TestRunRefusesAnUnmappedConnection(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t, t.TempDir())
@@ -208,6 +308,46 @@ func TestToolFlag(t *testing.T) {
 			t.Errorf("Set(%q) accepted", bad)
 		}
 	}
+}
+
+// runIDs runs cfg and returns its capture_id per tool id and the tool id of each of its pack_ids.
+func runIDs(t *testing.T, cfg *config) (map[string]tracepack.UUID, map[tracepack.UUID]string) {
+	t.Helper()
+	res, err := run(t.Context(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	captures := map[string]tracepack.UUID{}
+	for _, c := range res.captures {
+		captures[c.toolID] = c.id
+	}
+	// A segment key ends <tool>/<capture>/<seq_first>-<pack>.tpk.
+	packs := map[tracepack.UUID]string{}
+	for _, path := range packFiles(t, cfg.out) {
+		_, name, _ := strings.Cut(strings.TrimSuffix(filepath.Base(path), ".tpk"), "-")
+		id, err := tracepack.ParseUUID(name)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		packs[id] = filepath.Base(filepath.Dir(filepath.Dir(path)))
+	}
+
+	return captures, packs
+}
+
+// readPacks returns the bytes of every committed pack under root, by path.
+func readPacks(t *testing.T, root string) map[string][]byte {
+	t.Helper()
+	out := map[string][]byte{}
+	for _, path := range packFiles(t, root) {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out[path] = b
+	}
+
+	return out
 }
 
 // packFiles returns the committed packs under root, in path order.

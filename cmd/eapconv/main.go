@@ -13,7 +13,10 @@
 // Each -tool flag maps a connection to its tool id, and a connection without one fails the run.
 //
 // The mapping of log entries to records is docs/specs/eapsml/eapsml-dialect.md §5.
-// The output depends only on the input and the flags, so a re-run over the same files writes the same bytes.
+// The output depends only on the input, the flags and the build, so a re-run over the same files writes the same bytes,
+// under the same capture and pack ids (docs/specs/eapsml/eapsml-dialect.md §5).
+// A run never replaces a pack: one whose key already holds the same bytes is left as it is,
+// and one whose key holds different bytes fails the run.
 package main
 
 import (
@@ -85,7 +88,8 @@ func parseFlags(args []string) (*config, error) {
 		return nil, fmt.Errorf("-instance: %w", err)
 	}
 	cfg := &config{
-		files: fs.Args(), tools: tools, eapID: *eap, tz: *tz, instance: id, out: *out, version: version(),
+		files: fs.Args(), tools: tools, eapID: *eap, tz: *tz, instance: id, out: *out,
+		version: version(), deps: readDeps(),
 	}
 	if *now != "" {
 		if cfg.now, err = time.Parse(time.RFC3339Nano, *now); err != nil {
@@ -107,15 +111,16 @@ func report(res *result) {
 		for _, st := range slices.Sorted(maps.Keys(s.Status)) {
 			parts = append(parts, fmt.Sprintf("%s=%d", st, s.Status[st]))
 		}
-		fmt.Printf("%s capture %s: %d records in %d segments, %d source bytes; %s\n",
-			c.toolID, c.id, s.Records, s.Segments, s.Bytes, strings.Join(parts, " "))
+		fmt.Printf("%s capture %s: %d records in %d segments (%d already present), %d source bytes; %s\n",
+			c.toolID, c.id, s.Records, s.Segments, s.Reused, s.Bytes, strings.Join(parts, " "))
 	}
 }
 
 // version returns the converter's module version,
 // else the VCS revision it was built from, suffixed "-dirty" for a modified tree, else "devel".
 // It enters every derived identifier, so two converters that may write different bytes never share an identifier.
-// A modified tree hashes as its base revision, which is enough to tell released converters apart, not work in progress.
+// A modified tree hashes as its base revision, which is enough to tell released converters apart, not work in progress;
+// a pack such a build writes differently under an existing id fails the run rather than replacing it.
 func version() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -143,15 +148,25 @@ func version() string {
 	return rev + dirty
 }
 
-// writerTag returns the writer tag a tracepack SegmentWriter writes: tracepack/<version> of the module in this build.
-func writerTag() string {
+// readDeps returns the versions in this build of the libraries that decide the output's bytes.
+// The writer tag is the one a tracepack SegmentWriter writes: tracepack/<version>.
+func readDeps() buildDeps {
+	return buildDeps{
+		writer:     "tracepack/" + depVersion("github.com/arloliu/go-secs/tracepack"),
+		classifier: depVersion("github.com/arloliu/go-secs/v2"),
+		codec:      depVersion("github.com/klauspost/compress"),
+	}
+}
+
+// depVersion returns the version of module path in this build, or "unknown".
+func depVersion(path string) string {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, d := range info.Deps {
-			if d.Path == "github.com/arloliu/go-secs/tracepack" {
-				return "tracepack/" + d.Version
+			if d.Path == path {
+				return d.Version
 			}
 		}
 	}
 
-	return "tracepack/unknown"
+	return "unknown"
 }
