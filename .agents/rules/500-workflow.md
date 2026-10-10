@@ -28,14 +28,16 @@ See `550-git-conventions.md` for branch, commit-message, and pull-request conven
 
 ```bash
 mise install        # first-time setup: Go + golangci-lint at the pinned versions
+make hooks          # first-time setup: run data-check before every commit
 make lint           # golangci-lint run
 make fmt            # golangci-lint fmt
 make vet
 make check          # lint + vet
 make docs-check     # docs/ against 450-doc-lifecycle.md
+make data-check     # nothing under data/ tracked but README.md and .gitignore
 make test           # -short, -race
 make bench
-make ci             # check + docs-check + test
+make ci             # check + docs-check + data-check + test
 ```
 
 Run `make` with no target for the help list.

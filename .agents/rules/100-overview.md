@@ -13,8 +13,8 @@ The design is in `docs/specs/ve/`; the roadmap is `docs/ROADMAP.md`.
 | `cmd/eapconv` | converts EAP SML logs into tracepack captures, one per equipment connection |
 | `internal/eapsml` | reads an EAP's SML text log into messages and pairs primaries with replies |
 | `docs/` | specs, plans and guides under `450-doc-lifecycle.md` |
-| `scripts/` | repository checks (`docs-check.py`) |
-| `data/` | sensitive inputs (vendor manuals, fab traffic logs) and their derived outputs; gitignored, owner-only |
+| `scripts/` | repository checks (`docs-check.py`, `data-check.py`), git hooks (`hooks/`) and the manual page-text converter (`manual-text.py`) |
+| `data/` | sensitive inputs (vendor manuals, fab traffic logs) and their derived outputs, owner-only; only its `README.md` and `.gitignore` are tracked (`make data-check`) |
 | `tmp/` | local scratch; gitignored |
 
 Create a package directory when its first code lands, not before.

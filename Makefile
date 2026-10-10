@@ -34,6 +34,12 @@ check: lint vet ## Run lint + vet
 docs-check: ## Check docs/ against .agents/rules/450-doc-lifecycle.md
 	@python3 scripts/docs-check.py
 
+data-check: ## Check that git tracks nothing under data/ but its README.md and .gitignore
+	@python3 scripts/data-check.py
+
+hooks: ## Enable the repository's git hooks (data-check before every commit); once per clone
+	@git config core.hooksPath scripts/hooks
+
 ##@ Test
 
 test: ## Run tests with -short and -race
@@ -44,6 +50,6 @@ bench: ## Run benchmarks
 
 ##@ CI
 
-ci: check docs-check test ## Every gate: lint, vet, docs check, tests
+ci: check docs-check data-check test ## Every gate: lint, vet, docs check, data check, tests
 
-.PHONY: help lint fmt vet check docs-check test bench ci
+.PHONY: help lint fmt vet check docs-check data-check hooks test bench ci

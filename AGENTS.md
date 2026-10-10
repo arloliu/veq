@@ -16,3 +16,4 @@ Read any file whose topic matches the task before editing code or documents.
 | `700-lint-after-write.md` | Lint workflow |
 
 Start with `docs/ROADMAP.md` for where the work stands.
+Converting a vendor manual or an EAP log in `data/`: follow `docs/guides/data-intake.md`.
