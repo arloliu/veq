@@ -183,17 +183,20 @@ and resolves them by the precedence in §5: the overlay first, then the most spe
 
 ## 4. Event core, outbound adapter, transport adapter
 
+go-secs citations in §4 are to v2.6.0, the version veq pins;
+the passive-side spike verified them ([ve-decisions.md](ve-decisions.md) V-28).
+
 ### 4.1 Inputs and their observation source
 
 | Input | Source | Reliability |
 |---|---|---|
 | Host primaries and orphan secondaries | go-secs data channel | complete for decodable frames |
 | Secondaries to VE primaries | **VE-owned correlation** on the data channel (§4.5) | complete |
-| Connection transitions (accept, Selected, Separate, T7, I/O error, local close) | lifecycle subscription (go-secs `hsms/lifecycle.go`) | latest state guaranteed; intermediate transitions may coalesce; no generation id in the event |
-| Epoch identity | **VE conn wrapper** assigns an epoch id per accepted connection (`WithListener` factory, go-secs `hsmsss/config.go:167`) | complete; this, not lifecycle, is the epoch source |
+| Connection transitions (accept, Selected, Separate, T7, I/O error, local close) | lifecycle subscription (go-secs `hsms/lifecycle.go`) | latest state guaranteed; intermediate transitions may coalesce; each event carries `Socket` and `Generation` (go-secs `hsms/lifecycle.go:92,99`) |
+| Epoch identity | go-secs `Generation`, stamped on every wire, socket, lifecycle and transaction event | complete; the epoch id is the selected session's `Generation` |
 | T6 on passive side | not applicable in v1: VE-initiated Linktest is disabled (§4.5) | — |
 | T8, read errors | lifecycle `CauseIOError` | not distinguishable |
-| Linktest/Select/Reject frames | **observed** by the wrapper frame observer (§4.4) as evidence and for the Select.rsp gate (§4.5); not intercepted (interception is v2) | observed, not consumed by protocol logic except the gate |
+| Linktest/Select/Reject frames | **observed** by the wire observer (§4.4) as evidence, for the Select.rsp gate (§4.5) and for peer rejections (§4.2); not intercepted (interception is v2) | observed, not consumed by protocol logic except the gate and rejection correlation |
 | Scenario stimuli, scheduler timers | in-core | complete |
 
 ### 4.2 Outputs and completion signals
@@ -204,6 +207,11 @@ and resolves them by the precedence in §5: the overlay first, then the most spe
 | Diagnostics, state changes | in-core | immediate |
 
 Design decision: the VE never uses `SendDataMessage`, `SendDataMessageAsync` or `ReplyDataMessage`.
+`ReplyDataMessage` is bound to the connection its primary arrived on
+and fails after a reconnect (go-secs `hsms/session.go:242`),
+which would make the epoch fence unnecessary for plain replies;
+it was considered and not adopted for v1, because it is asynchronous, so it has no `written` signal,
+and it builds only function+1 with no W-bit, so it cannot carry Sx,F0, quirk or S9Fx replies.
 Known limitations of this path:
 go-secs still counts forwarded frames in its data-send/error counters
 and reports `TxSent` with `ReplyWaited=false` to a transaction observer, but never the VE's reply/T3 outcome,
@@ -212,8 +220,9 @@ the VE's pending T3 does not feed go-secs's inflight-based linktest suppression;
 forwarded data outside SELECTED is refused (`ErrNotSelectedState`)
 and inbound data outside SELECTED never reaches the core,
 so §4.1 completeness holds only within SELECTED;
-a peer Reject.req with no registry entry is counted and discarded by go-secs (go-secs `hsmsss/transport_recv.go:148,188`),
-so an unobserved rejection surfaces as a VE T3 outcome in v1.
+a peer Reject.req with no registry entry is counted and discarded by go-secs (go-secs `hsmsss/transport_recv.go:201,231`),
+but the wire observer (§4.4) sees it,
+so the core correlates it by System Bytes and ends the VE transaction as `rejected` instead of at T3.
 Consequences:
 (a) every output has a real `written` signal;
 (b) the VE core owns reply correlation and T3 for its own primaries (a scheduler timer, virtual in offline mode);
@@ -245,14 +254,23 @@ Instance State objects with state machine, timers, cancellation and dependencies
   their conversation rules (timers, cancellation, failure outcomes) are open (phase 3).
 
 ### 4.4 Transport adapter
-Passive endpoint via go-secs with a VE conn wrapper from `WithListener`.
-In v1 the wrapper is a **frame observer**
-(it reassembles the length-prefixed stream, since go-secs reads prefix and payload separately, go-secs `hsmsss/transport_recv.go:230`)
-that stamps frames with wall time and epoch id for evidence;
-it does not intercept or inject.
+Passive endpoint via go-secs; `WithListener` (go-secs `hsmsss/config.go:188`) stays only as the listener factory.
+The VE observes the transport through go-secs's own observers, which replace the earlier VE conn wrapper:
+- `WithWireObserver` (go-secs `hsms/connection_config.go:735`) reports every complete frame in both directions,
+  byte-exact, with wall time, `Socket` and `Generation`;
+- `WithSocketObserver` (go-secs `hsms/connection_config.go:793`) reports socket accept, refusal and close.
+
+Observer contract: the callback runs synchronously on the I/O goroutine, so the VE copies the frame and returns;
+the frame is valid only during the call;
+the callback never sends on the connection;
+an outbound frame is reported only after its write succeeded, with a time taken just before the write was issued.
+The observers do not intercept or inject.
 go-secs owns automatic transport responses
-(Select.rsp, unconditional Linktest.rsp go-secs `hsmsss/transport_control.go:441`, Reject, T7 close);
+(Select.rsp, unconditional Linktest.rsp go-secs `hsmsss/transport_control.go:508`, Reject, T7 close,
+and Deselect.rsp with status 0, go-secs `hsmsss/transport_control.go:570`, a documented deviation from E37.1);
 the Profile records `transport-policy: go-secs-default`, and transport-layer deviations are `unsupported` in v1.
+After a connection drops, the passive side listens again only after the reconnect backoff (100 ms by default),
+so the VE sets `WithReconnectBackoff` deliberately; the gap is a transport-fidelity item.
 Transport options: `WithSessionIDValidation` and `WithStrictReplyMatching` stay at their defaults (off);
 the VE validates DeviceID itself
 so that a wrong-DeviceID host message reaches the core and can be answered with S9F1 per Profile.
@@ -267,19 +285,27 @@ so that a wrong-DeviceID host message reaches the core and can be answered with 
 - Mandatory orderings are expressed as dependencies on `written`:
   S1F14 before COMMUNICATING is entered; S5F1 before its S6F11; S1F16/S1F18 before the control-state CE.
 - **Select.rsp before unsolicited data**:
-  go-secs commits Selected before it enqueues Select.rsp (go-secs `hsmsss/transport_control.go:244,270`),
+  go-secs commits Selected before it enqueues Select.rsp (go-secs `hsmsss/transport_control.go:299,321`),
   so the Selected lifecycle event is not proof the response is on the wire.
+  Without a gate, an S1F13 sent on the Selected event
+  reached the wire before Select.rsp in about 10 % of handshakes (V-28),
+  and comparing the two events' times cannot order them.
   Invariant: after passive selection, the adapter releases unsolicited VE data (S1F13 in `comm-init: equipment | both`, events, alarms)
-  only after the frame observer has seen Select.rsp written for that epoch.
+  only after the wire observer has reported the outbound Select.rsp whose `Generation` equals the Selected event's.
   Observation of control frames is v1 (the observer already sees every frame); interception stays v2.
-- **Active session epoch vs sockets**: the wrapper assigns a socket id to every accepted connection,
-  but only the socket go-secs selects for the session becomes the **active epoch**
-  (a passive listener may accept and refuse extra sockets while a session is live, go-secs `hsmsss/transport_passive.go:114,164`).
+- **Active session epoch vs sockets**: go-secs assigns a `Socket` id to every accepted connection,
+  but only the socket it selects for the session becomes the **active epoch**.
+  While a socket holds the session, selected or not, the passive listener accepts each extra socket,
+  answers its Select.req with status 1 and closes it;
+  the socket observer reports it as refused, and its frames carry `Generation` 0
+  (go-secs `hsmsss/transport_passive.go:125,192,319`).
   Every admitted input carries the active epoch it was admitted under; intents inherit it.
 - **Epoch fencing**: before each write the adapter compares the intent's epoch with the current active epoch;
   mismatch → `failed(epoch-ended)`.
   On any observed epoch change the adapter first fails every queued intent from older epochs, then resumes.
-  go-secs binds the write to the epoch it loaded at call time (go-secs `hsms/connection_send.go:114,569`),
+  `ForwardDataMessage` is not bound to the intent's origin:
+  an intent built before a reconnect and forwarded after it goes out on the new connection.
+  go-secs binds the write to the epoch it loaded at call time (go-secs `hsms/connection_send.go:632,108,125`),
   so a reconnect during the call fails the write rather than crossing sockets,
   except in the window between the adapter's check and go-secs loading the epoch.
   **Residual**: in that window an old VE primary or secondary can reach the new host connection as a valid frame.
@@ -294,7 +320,7 @@ so that a wrong-DeviceID host message reaches the core and can be answered with 
   The core registers (epoch, DeviceID, SystemBytes, S/F) with a T3 scheduler timer;
   the peer's secondary arrives on the data channel as an orphan
   (go-secs's reply registry has no entry for it, so it falls through to the data handlers regardless of `WithStrictReplyMatching`,
-  go-secs `hsms/connection_runtime.go:175,277`)
+  go-secs `hsms/connection_runtime.go:299,305`)
   and the core correlates it;
   T3 expiry → conversation rule and Profile-governed S9F9.
 - **Connection-wide transaction identity**: go-secs's reply registry keys on System Bytes only,
@@ -302,6 +328,10 @@ so that a wrong-DeviceID host message reaches the core and can be answered with 
   (go-secs `hsms/reply_registry.go:112`, go-secs `hsmsss/transport_procedures.go:192`).
   v1 rule: **the VE never enables go-secs-initiated control transactions**
   (automatic Linktest stays at its default, disabled; Linktest from the host is answered by go-secs and needs no registry entry).
+  The collision is reproduced in V-28's spike:
+  with automatic Linktest on, a VE primary sharing the probe's System Bytes lost its reply to it.
+  The VE's System Bytes generator also stays disjoint from go-secs's own, which starts at 1
+  and still serves control messages such as a courtesy Separate on close.
   This is a documented v1 limitation; a coordinated generator is the v2 alternative.
 
 ### 4.6 Admission and overload
@@ -340,7 +370,7 @@ Initial: COMMUNICATING, ON-LINE/REMOTE, EXECUTING; trace T1 {DSPER 1 s, REPGSZ 5
 | 2 | trace tick | count 4 | — |
 | 3 | lifecycle → NotConnected | comm failure; EV-901 outcome `conn-closed` → cancel (journal `event-lost`); T1 keeps sampling | — |
 | 4 | trace tick | count 5 → group complete while NOT COMMUNICATING → `trace-group-lost`; count continues | — |
-| 5 | wrapper: new active epoch; lifecycle → Selected; observer sees Select.rsp written | core: WAIT CR FROM HOST; unsolicited data gate opens only after the Select.rsp observation | — |
+| 5 | lifecycle → Selected with a new `Generation`: new active epoch; wire observer reports Select.rsp written for it | core: WAIT CR FROM HOST; unsolicited data gate opens only after the Select.rsp observation | — |
 | 6 | S1F13 | intent R1 (S1F14) | S1F14 written → **then** COMMUNICATING |
 | 7 | trace ticks ×5 | next group; SMPLN/STIME are real sample times, contiguous with pre-disconnect ticks | S6F1 written; its S6F2 arrives as an orphan secondary and is correlated by the core |
 | 8 | S6F15 CEID 901 | report 10 persisted; DVVAL outside its event → zero-length item | S6F16 written |
@@ -650,7 +680,7 @@ the K = 10 / 80 % population is evaluated after the pilot as a separate mileston
 
 ## 14. Open implementation items (deferred by R3-6)
 O1 sync-write throughput at tens of instances;
-O2 wrapper framing and timestamp semantics;
+O2 wire-observer timestamp semantics;
 O3 checkpoint encoding;
 O4 queue sizes;
 O5 worked-example tables (the worked-examples document, not in this repository);

@@ -391,3 +391,20 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   This needs a tracepack record that omits its body and a capture-level declaration of deliberately filtered or sampled traffic,
   which learners treat as a known unobserved source (architecture §6).
   The sampling rule is set when the FDC configuration (polling interval, variable count) is known.
+
+## 2026-10-10 go-secs passive-side verification (owner)
+
+- V-28 A throwaway spike tested the eight go-secs claims of `ve-architecture.md` §4.4–§4.5
+  against go-secs v2.6.0, the pinned version, over TCP loopback with a raw host peer.
+  Seven hold.
+  The eighth, a VE frame observer built on a `WithListener` conn wrapper, is superseded:
+  v2.6.0's wire and socket observers report every frame and socket with a generation id,
+  so the VE takes frames and epoch identity from go-secs.
+  The Select.rsp gate is necessary:
+  without it, a VE's first data message preceded Select.rsp in about 10 % of handshakes.
+  The gate waits for the observed outbound Select.rsp of the selected generation.
+  The VE keeps `ForwardDataMessage` as its only output path, fences epochs itself,
+  keeps go-secs-initiated control transactions disabled, and keeps its System Bytes disjoint from go-secs's own.
+  A peer Reject.req, now observable, ends a VE transaction as `rejected` rather than at T3.
+  `ve-architecture.md` §4 is updated accordingly, with its go-secs citations moved to v2.6.0;
+  the spike's report and code are kept outside the repository.
