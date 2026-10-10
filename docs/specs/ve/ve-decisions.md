@@ -442,3 +442,10 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
     a Go SDK serves what a scenario cannot express, although both products are likely Go.
   - The design is a proposal, P2, covering the VE's side: the test topology, a control plane, the shared clock,
     and the EAP's testability requirements, stated as requirements rather than as the EAP's design.
+
+## 2026-10-11 where test agents run (owner)
+
+- V-32 AI agents that write, run and improve EAP test scenarios run inside the fab,
+  within the generation service's data boundary,
+  because Profiles, Run Journals and test reports are log-derived and never leave it.
+  Agents hosted outside the fab are not part of P2's design.

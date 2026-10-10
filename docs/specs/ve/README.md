@@ -16,5 +16,6 @@ Documents here follow `.agents/rules/450-doc-lifecycle.md`.
 | `ve-evidence.md` | living | draft | the evidence baseline: per source, what it supplies, what it cannot, and at what fidelity |
 | `ve-log-service.md` | living | draft | what the VE requires of the traffic log service, and where each requirement is settled |
 | `proposals/p1-generation-service.md` | finite | active | a self-learning VE generation service: two learning loops, prior layers, experiment registry |
+| `proposals/p2-eap-test-target.md` | finite | draft | the VE as the test target of the next-generation EAP: topology, shared test clock, control plane, scenarios for AI agents |
 
-Next proposal ID: P2.
+Next proposal ID: P3.
