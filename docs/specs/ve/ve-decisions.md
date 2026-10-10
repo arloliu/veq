@@ -303,3 +303,10 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   - a source reference is the file's base name and the SHA-256 of its content, never a local path;
   - an entry without a parseable time takes the previous entry's time,
     the first entries of a run the first parseable time, and both are marked `ordering-uncertain`.
+
+## 2026-10-10 pilot connections (owner)
+
+- V-18 Of the connections in the pilot logs, the VE simulates the tool and its load-port controller.
+  The third peer, which exchanges stream 99 with the EAP, is labelled an FDC connection and left out for now;
+  the converter still writes its capture, as it writes every connection's.
+  Details are in `docs/specs/eapsml/eapsml-dialect.md` §3.

@@ -63,8 +63,13 @@ A message appears as a header line, followed by a body line and the indented SML
 
 A log can carry more than one equipment connection.
 Besides the tool, the sample's EAP polls an auxiliary load-port controller on its own session,
-with an `S1F1` heartbeat about once a minute,
-and exchanges vendor-specific streams (`S98`, `S99`) that the tool's manual does not define.
+with an `S1F1` heartbeat about once a minute and carrier-purge messages in stream 98,
+which the tool's manual does not define.
+Stream 99 carries lot and recipe exchanges with a third peer,
+which answers no `S1F1` and reported one alarm naming an FDC monitoring strategy;
+the owner labels it an FDC connection.
+On one EAP version it has a connection of its own;
+on the other its messages carry the tool's session ID, so no connection rule tells them apart from the tool's.
 On one tool that controller's logged headers have the top bit of the session field set (`80-00`),
 the SECS-I reverse bit, while the device token names the connection.
 
