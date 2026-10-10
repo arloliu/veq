@@ -3,3 +3,6 @@
 
 # Local working area (design drafts, scratch).
 /tmp/
+
+# Editor settings, kept per machine.
+/.vscode/
