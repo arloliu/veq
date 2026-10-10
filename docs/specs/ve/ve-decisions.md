@@ -292,3 +292,14 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   coverage is counted over the whole run, with no byte in two captures.
   The pin stays at v0.2.0 until a release ships 2.29.
   Details are in `docs/specs/eapsml/eapsml-dialect.md` §5.
+
+## 2026-10-10 EAP log converter rules (owner)
+
+- V-17 The owner confirms the rules `cmd/eapconv` fixed where neither tracepack nor the dialect decided them,
+  as `docs/specs/eapsml/eapsml-dialect.md` §5 states them:
+  - tool IDs are operator configuration, and a connection without one fails the run before anything is written;
+  - a message whose connection is unknown goes to the EAP's capture as a data record;
+  - an invalid W in the body line's text is `parse-failed`, an invalid W from the header alone is `build-rejected`;
+  - a source reference is the file's base name and the SHA-256 of its content, never a local path;
+  - an entry without a parseable time takes the previous entry's time,
+    the first entries of a run the first parseable time, and both are marked `ordering-uncertain`.
