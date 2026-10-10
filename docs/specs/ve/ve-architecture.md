@@ -402,6 +402,9 @@ They compose in this order:
 - **Known unobserved sources**: every capture declares, beside its vantage,
   the traffic it cannot see, e.g. "traffic the gateway originates toward the tool".
   A learner must not read absence from a capture with a declared blind spot as absence of behaviour.
+  Traffic a recorder filters or samples on purpose, such as the FDC service's polling bodies (V-27), is declared the same way.
+- **Sensitive content**: learners read masked captures with keyed digests, never sensitive content in the clear (V-26);
+  initial sensitive values the VE must return come from the Instance Overlay.
 - Transport-layer and malformed-frame evidence requires `wire-exact` records, whatever the pack's capture method;
   a `decoded-message` recorder that keeps the raw bytes of frames it failed to decode also writes `wire-exact` records.
 - **Scopes and where they live**: tracepack holds capture id, transport epoch and transaction identity

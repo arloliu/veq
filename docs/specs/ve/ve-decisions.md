@@ -64,6 +64,7 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   SECS-I supported in code but unused in any example/e2e config.
   (2026-09-27, G5-73: VE reads unmasked recordings as a privileged consumer;
   its derived models and profiles hold recipe content and inherit the same access control as the recordings.)
+  (G5-73 superseded by V-26)
 
 ## 2026-09-26 grilling round 2 (owner accepted all recommendations)
 
@@ -170,6 +171,7 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
 - G5-73 VE reads unmasked data as a privileged consumer (G1-11 unchanged);
   its derived models and profiles inherit the same access control.
   Recorded at G1-11, not in the tracepack spec.
+  (superseded by V-26)
   (also in the tracepack decision log)
 
 ## 2026-10-09 pilot sample and re-derivation (owner)
@@ -363,3 +365,29 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   and the pilot logs carry none of those events or variables.
   E157 is acquired when an EAP enables its events or a tool type depends on it with a thinner manual;
   an older revision when a behaviour cannot be resolved without it.
+
+## 2026-10-10 sensitive content and FDC polling in captures (owner, after an external review and the FDC service maintainers' answers)
+
+- V-26 The VE trains on masked captures with keyed digests, not on sensitive content in the clear; G5-73 is superseded.
+  Masked captures keep structure, item types, lengths and, through digests, equality across messages,
+  which serve message shapes, machines, timing and identity relations.
+  They do not serve value-dependent rules or the return of a recorded sensitive value, so the decision holds under these conditions:
+  - every sensitive field is classed as equality-only, grammar-projected (e.g. a PPID's character classes and length),
+    numeric or predicate-bearing, template-bearing, or deployment-provisioned;
+  - values compared across message types share one digest domain;
+  - the Instance Overlay provisions every initial sensitive value the VE must return,
+    such as the recipe directory and bodies a tool holds before a test,
+    and ranges and predicates come from the manual or the overlay, not from captures;
+  - a protected scorer that takes no part in learning compares the VE's sensitive outputs with recorded digests and returns only the results;
+    learners never hold the digest key;
+  - capture-time encryption of sensitive fields with a digest (the tracepack's deferred G5-74), replacing store-in-full,
+    is the tracepack maintainers' design to make; veq asks for it but does not depend on it.
+- V-27 The FDC service's interval polling (`S1F3`/`S1F4`) is thinned at the equipment gateway, not dropped.
+  The FDC service's own sample store cannot replace it:
+  it keeps only named values converted to numbers or text, one gateway timestamp per sample, inside processing contexts,
+  with no variable IDs, item types, failed polls or raw event reports, and its offline copy is best-effort.
+  The gateway keeps every poll's header and time, every abnormal reply in full (`S9Fx`, timeouts, empty or zero-length items),
+  and a declared sample of normal reply bodies; the sample store is a secondary source of value trajectories.
+  This needs a tracepack record that omits its body and a capture-level declaration of deliberately filtered or sampled traffic,
+  which learners treat as a known unobserved source (architecture §6).
+  The sampling rule is set when the FDC configuration (polling interval, variable count) is known.
