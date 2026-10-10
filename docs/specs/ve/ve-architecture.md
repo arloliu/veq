@@ -29,8 +29,9 @@ Goals as testable targets:
    Transport-layer deviations are v2.
 3. **Virtual clock**: VE-internal logical time; host-facing timing is wall time in live mode.
    With a continuously polling host there is no compression in live mode (§10).
-4. **Generic generation**: design default K = 10 tool types after the pilot,
-   ≥ 80 % onboard with Profile data and ≤ 2 extension hooks ([ve-decisions.md](ve-decisions.md) R3-3).
+4. **Generic generation**: tool types beyond the pilot onboard mostly with Profile data and few extension hooks;
+   the population target is open (phase 2);
+   R3-3's K = 10 / 80 % binds nothing until re-confirmed ([ve-decisions.md](ve-decisions.md) V-4).
 
 Non-goals: process physics; conformance certification; host-side virtual time;
 SECS-I binding in v1 (interface abstract).
@@ -137,7 +138,8 @@ over a **shared variable store** (status variables, data variables, equipment co
 plus reply rules, value generators and timing distributions ([ve-decisions.md](ve-decisions.md) V-10).
 
 - **Machines**:
-  the GEM machines (communications, control, processing, alarm, spooling; [ve-gem-skeleton.md](ve-gem-skeleton.md)),
+  the GEM machines (communications, control, alarm, limit monitoring, spooling; [ve-gem-skeleton.md](ve-gem-skeleton.md)),
+  the processing machine, whose states and transitions are tool-type data with E30's example model as the standard prior,
   one machine per equipment module,
   and **object machines** instantiated per object:
   carriers (E87), process jobs (E40), control jobs (E94) and substrates (E90), with E39 object services.
@@ -411,8 +413,13 @@ They compose in this order:
   `capture-boundary`, `ordering-uncertain`, `correlation-incomplete`, `direction-inferred`;
   "malformed" is derived from `decode_status`
   (the tracepack specification, go-secs `docs/specs/tracepack/`, P9 §3.8 retired the `decode-failed` mirror bit).
-  A deviation becomes a quirk `candidate` only from records without `capture-boundary`, `ordering-uncertain` and `correlation-incomplete`
-  that are not malformed.
+  A deviation becomes a quirk `candidate` only from records without `capture-boundary` and `ordering-uncertain`
+  that are not malformed;
+  a deviation whose claim rests on pairing a reply with its primary or on the transport epoch
+  also needs records without `correlation-incomplete` ([ve-decisions.md](ve-decisions.md) V-20).
+- **Known foreign traffic**: traffic of another peer carried on the tool's connection,
+  e.g. the FDC peer's stream 99 on one EAP version, stays in the tool's capture;
+  the tool-type layer of the Profile declares it foreign, learners skip it, and the Evaluator does not score it (V-21).
 
 ---
 

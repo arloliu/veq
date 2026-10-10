@@ -70,6 +70,7 @@ which answers no `S1F1` and reported one alarm naming an FDC monitoring strategy
 the owner labels it an FDC connection.
 On one EAP version it has a connection of its own;
 on the other its messages carry the tool's session ID, so no connection rule tells them apart from the tool's.
+They stay in the tool's capture; the VE Profile declares them foreign traffic (VE decision V-21).
 On one tool that controller's logged headers have the top bit of the session field set (`80-00`),
 the SECS-I reverse bit, while the device token names the connection.
 

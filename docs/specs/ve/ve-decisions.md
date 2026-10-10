@@ -322,3 +322,23 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
 
   G5-192 replaces G5-186's one capture ID per tool per run with one per tool per source file set per logical conversion.
   Details are in `docs/specs/eapsml/eapsml-dialect.md` §5.
+
+## 2026-10-10 pending decisions (owner accepted the recommendations)
+
+- V-20 A `correlation-incomplete` record can carry a semantic quirk.
+  A converted EAP log has no transport events, so tracepack writes every record in epoch 0 and marks it `correlation-incomplete`,
+  which under the architecture's earlier quality-flag rule left no log record eligible as quirk evidence, contrary to G4-28.
+  The flag bars only a deviation whose claim rests on pairing a reply with its primary or on the transport epoch;
+  a deviation read from single records or their order stays a candidate, under G1-6's human review.
+  An inferred-epoch extension to tracepack is reconsidered once multi-day logs show whether connection starts are visible;
+  it would be a separate field, since tracepack's `epoch` names an observed socket.
+- V-21 Traffic of another peer on the tool's connection is excluded by the Profile, not by the converter.
+  On one EAP version the FDC peer's stream 99 messages carry the tool's session ID (V-18),
+  and the converter keeps every byte in the capture of the connection that carried it.
+  The tool-type layer of a Profile declares such traffic foreign;
+  learners skip it and the Evaluator does not score it.
+- V-22 Where the standards behind the skeleton disagree or leave a value undefined
+  (e.g. E40 STOPPED and ABORTED codes, the E90 SKIPPED code, E87 CARRIERACTION strings),
+  the rule starts `unresolved` at the narrowest prior layer its evidence supports:
+  standard, vendor or family, tool type, or tool.
+  The vendor manual and captures resolve it; an `unresolved` rule that affects scored behaviour blocks promotion.

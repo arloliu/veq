@@ -633,6 +633,9 @@ Other streams, as counts of message headers in E5 §10:
 
 - **State machines** 1.1, 1.2, 1.4, 1.5 and 1.6, plus the transport machines in §3.
   - Fundamental GEM (E30 Table 9): state models §3.0–3.3, processing states §3.4, host-initiated S1F13/14, event notification, online identification, error messages, operator-initiated control, documentation.
+    For processing states the standard part is the requirement of 1.3:
+    a model, one CE per transition, the state SVs and CEs;
+    the model itself is per-tool data (5.2).
   - Everything else is an opt-in capability (E30 Table 10), per tool.
 - **Object machines** (§6), for a tool that declares them: the E87, E40, E94 and E90 state models, the E39 services and their `.1` message mappings.
 - **Message set, structures, zero-length semantics and ACK enumerations** (§2, §4).
@@ -697,8 +700,11 @@ Rule of thumb for the VE:
   It is shared across tools.
 - **Everything in 5.2 is data.**
   It forms a per-tool profile, loaded as a catalog of SV/EC/DV/CE/ALID/RCMD, a processing state machine, default reports, and timer/config values.
-- **Some of it can be recovered by probing** a real tool with host-initiated queries:
+- **Some of it can be recovered from host-initiated queries** found in captures:
   S1F11, S2F29, S5F5, S7F19, S1F21, S1F23, S6F15.
+  A production tool is never probed for them ([ve-decisions.md](ve-decisions.md) G1-8, V-10);
+  where captures lack them, the generation service's approved probe hook runs them in an offline or maintenance window
+  ([ve-generation-service.md](ve-generation-service.md) §1.3).
 - **The rest needs the vendor's GEM manual.**
   Most importantly:
   - DVVAL validity per event;
@@ -718,6 +724,8 @@ its `.1` subsidiary standard maps the services to SECS-II messages and the varia
 Revisions read: E39-0703 (reapproved 1109) and E39.1-0703; E87-0312 and E87.1-0702; E40-0813 and E40.1-0304; E94-0713 and E94.1-1101; E90-0312 and E90.1-0703.
 Several `.1` revisions predate their base standard and lag it; each subsection lists where they disagree.
 A tool may claim older revisions than these, so a revision difference is a per-tool question, not a defect of the tool.
+Where the sources disagree or leave a value undefined (the caveats below), the rule starts `unresolved`
+at the narrowest prior layer its evidence supports ([ve-decisions.md](ve-decisions.md) V-22).
 
 Conventions shared by the object state models (E87 §7.2, E40 §5.1, E94 §6.2, E90 §6.1):
 - **One CE per transition**, shared by every instance of the model; the report's object identifier tells instances apart.

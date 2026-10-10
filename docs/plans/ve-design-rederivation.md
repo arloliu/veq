@@ -1,6 +1,6 @@
 # VE design re-derivation
 
-Status: draft (2026-10-09) — awaiting the owner's approval of phase 1
+Status: active (2026-10-10) — phase 1 approved; collecting its inputs
 
 The first VE design (`docs/specs/ve/ve-architecture.md`, v4.2) was written before any pilot data existed.
 The owner re-opened all of it, including the pilot gates (decision V-4 in `docs/specs/ve/ve-decisions.md`).
@@ -11,7 +11,7 @@ Design content goes to the specs and rationale to the decision log; this file on
 
 | Phase | Status |
 |---|---|
-| 1 — Evidence baseline | pending |
+| 1 — Evidence baseline | in-progress |
 | 2 — Goals, scope and pilot gates | pending |
 | 3 — Architecture, contract by contract | pending |
 | 4 — Implementation spec and plan for the first milestone | pending |
@@ -30,6 +30,7 @@ Inputs to obtain (owner):
 Work (veq):
 
 - Done: the equipment gateway does not acknowledge event and alarm reports; the tools are configured not to ask (decision V-8).
+- Done: the inputs above were requested from their owners; replies are expected 2026-10-12.
 - Run `cmd/logcat` over the new logs and confirm or correct `eapsml-dialect.md`.
 - Write `docs/specs/ve/ve-evidence.md` (living):
   per source — EAP logs, gateway capture, manual, identifier exports, standards —
