@@ -427,3 +427,18 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   which reads as seq gaps.
   More replicas follow if the measured loss is too large.
   The service's recovery time is a matter of minutes, set in its own service level.
+
+## 2026-10-10 testing the EAP against the VE (owner)
+
+- V-31 The VE's purpose is tested where it is used:
+  a next-generation EAP, designed for automated, programmable verification from day 1.
+  - The real EAP reaches a VE through a test instance of the equipment gateway, separate from production,
+    so the EAP needs no change and the gateway's own behaviour is exercised too.
+  - Functional and fault tests come first; regression by replaying recorded traffic waits for the traffic log service.
+  - The next-generation EAP takes an injectable clock, so a test can run the EAP and the VE on one test clock
+    and compress time.
+    This reopens the architecture's non-goal of host-side virtual time, for hosts that accept the clock.
+  - Tests are written first as declarative scenarios, which AI agents can generate, run and improve quickly;
+    a Go SDK serves what a scenario cannot express, although both products are likely Go.
+  - The design is a proposal, P2, covering the VE's side: the test topology, a control plane, the shared clock,
+    and the EAP's testability requirements, stated as requirements rather than as the EAP's design.

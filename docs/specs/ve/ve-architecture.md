@@ -33,7 +33,8 @@ Goals as testable targets:
    the population target is open (phase 2);
    R3-3's K = 10 / 80 % binds nothing until re-confirmed ([ve-decisions.md](ve-decisions.md) V-4).
 
-Non-goals: process physics; conformance certification; host-side virtual time;
+Non-goals: process physics; conformance certification;
+host-side virtual time, except for a host that accepts an injectable test clock ([ve-decisions.md](ve-decisions.md) V-31);
 SECS-I binding in v1 (interface abstract).
 The object standards (E87, E40, E94, E39, E90) are skeleton capabilities, not non-goals ([ve-decisions.md](ve-decisions.md) V-10):
 the standard is their prior, and the vendor manual and logs supply the delta.
