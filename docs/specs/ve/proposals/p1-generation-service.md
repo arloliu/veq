@@ -1,6 +1,6 @@
 # P1 — A self-learning VE generation service
 
-Status: active (2026-10-10) — accepted; §8 applied except the GEM skeleton; phase 2's numbers pending
+Status: active (2026-10-10) — accepted; §8 applied; §1's move and phase 2's numbers pending
 
 This proposal turns the first pilot evidence into a design for the service that generates Virtual Equipment (VE).
 The service learns each tool type's behaviour from evidence (the inner loop)
@@ -476,7 +476,7 @@ and exchanges between fabs.
 
 The architecture changes were applied on 2026-10-10.
 §4.1, §4.3, §4.4, §6, §7 and §9, which §8 gave no home, live in [ve-generation-service.md](../ve-generation-service.md) (V-15).
-The GEM skeleton waits for the object standards.
+The GEM skeleton gained the object machines on 2026-10-10 ([ve-gem-skeleton.md](../ve-gem-skeleton.md) §6).
 §1, the pilot evidence, moves to phase 1's evidence baseline before this proposal closes.
 
 ## 9. Left to implementation

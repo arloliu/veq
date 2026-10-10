@@ -12,7 +12,7 @@ Documents here follow `.agents/rules/450-doc-lifecycle.md`.
 | `ve-decisions.md` | living | current | owner decisions, append-only |
 | `ve-architecture.md` | living | draft | v4.2 architecture with P1's changes applied; the starting point of the re-derivation |
 | `ve-generation-service.md` | living | draft | the generation service: learning loops, onboarding, registries, hypotheses, release of log-derived content |
-| `ve-gem-skeleton.md` | living | current | GEM behaviour a passive VE must exhibit, distilled from SEMI E5, E30, E37 and E37.1 |
+| `ve-gem-skeleton.md` | living | current | GEM behaviour a passive VE must exhibit, distilled from SEMI E5, E30, E37 and E37.1, plus the object machines (E39, E87, E40, E94, E90) |
 | `proposals/p1-generation-service.md` | finite | active | a self-learning VE generation service: two learning loops, prior layers, experiment registry |
 
 Next proposal ID: P2.
