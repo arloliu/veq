@@ -351,3 +351,15 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   `cmd/eapconv` drops its own no-overwrite wrapper for the directory sink's `DirSinkNoReplace` option (go-secs G5-197),
   whose hard-link publication is safe against a concurrent writer, as the wrapper's check-then-rename was not.
   Capture and pack IDs hash the converter and tracepack versions, so converted output is regenerated with the new build.
+
+## 2026-10-10 converter output and standard revisions (owner accepted the recommendations)
+
+- V-24 During the pilot, converted output stays as generation-0 segment packs in a local directory, and nothing merges it.
+  Learners read segments through listing views, which tracepack allows, and the pilot's few segments per capture gain nothing from an archive.
+  Merging, its catalog and the deletion of merged segments come with the traffic log service and the fab's object storage (V-12).
+- V-25 The standards corpus the skeleton was distilled from is enough for now;
+  E157 (module process tracking) and the older object-standard revisions a tool's manual claims are not acquired yet.
+  The pilot tool type's manual documents its own E157 implementation (state model, events and variables),
+  and the pilot logs carry none of those events or variables.
+  E157 is acquired when an EAP enables its events or a tool type depends on it with a thinner manual;
+  an older revision when a behaviour cannot be resolved without it.

@@ -141,6 +141,7 @@ One run converts an ordered set of log files.
 - **Output**: generation-0 segment packs, one per run of a capture's records in one UTC hour, under the store's staging keys (G5-193);
   seq runs across the whole capture,
   and the start and stop boundaries sit once per capture, at the times of its first and last records.
+  During the pilot the output stays as these segments in a local directory; nothing merges it (VE decision V-24).
 - **Reproducible output**: the writer start time is the last entry's unless the operator gives one,
   so the same files and settings always yield the same bytes, under the same IDs (G5-192).
   Capture and pack IDs are UUIDv7 values whose time is the capture's first record or the segment's hour,

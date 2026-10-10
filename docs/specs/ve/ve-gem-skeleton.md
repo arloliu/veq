@@ -724,6 +724,7 @@ its `.1` subsidiary standard maps the services to SECS-II messages and the varia
 Revisions read: E39-0703 (reapproved 1109) and E39.1-0703; E87-0312 and E87.1-0702; E40-0813 and E40.1-0304; E94-0713 and E94.1-1101; E90-0312 and E90.1-0703.
 Several `.1` revisions predate their base standard and lag it; each subsection lists where they disagree.
 A tool may claim older revisions than these, so a revision difference is a per-tool question, not a defect of the tool.
+E157 (module process tracking) and older revisions are not in the corpus yet ([ve-decisions.md](ve-decisions.md) V-25).
 Where the sources disagree or leave a value undefined (the caveats below), the rule starts `unresolved`
 at the narrowest prior layer its evidence supports ([ve-decisions.md](ve-decisions.md) V-22).
 
