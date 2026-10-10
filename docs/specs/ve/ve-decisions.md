@@ -342,3 +342,12 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   the rule starts `unresolved` at the narrowest prior layer its evidence supports:
   standard, vendor or family, tool type, or tool.
   The vendor manual and captures resolve it; an `unresolved` rule that affects scored behaviour blocks promotion.
+
+## 2026-10-10 tracepack v0.3.0 (owner)
+
+- V-23 veq pins `github.com/arloliu/go-secs/tracepack` at v0.3.0, which implements specification 2.31,
+  so the version the converter's packs declare matches the rules it follows (V-16, V-19).
+  V-14's rules on exact pins and changelog reading stand; the v0.3.0 changelog has no change veq must adapt to.
+  `cmd/eapconv` drops its own no-overwrite wrapper for the directory sink's `DirSinkNoReplace` option (go-secs G5-197),
+  whose hard-link publication is safe against a concurrent writer, as the wrapper's check-then-rename was not.
+  Capture and pack IDs hash the converter and tracepack versions, so converted output is regenerated with the new build.

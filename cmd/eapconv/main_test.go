@@ -219,8 +219,8 @@ func TestRunRefusesToOverwriteADifferentPack(t *testing.T) {
 	if err := os.WriteFile(path, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := run(t.Context(), cfg); !errors.Is(err, errPackConflict) {
-		t.Fatalf("err = %v, want errPackConflict", err)
+	if _, err := run(t.Context(), cfg); !errors.Is(err, tracepack.ErrSegmentConflict) {
+		t.Fatalf("err = %v, want ErrSegmentConflict", err)
 	}
 	kept, err := os.ReadFile(path)
 	if err != nil || !bytes.Equal(kept, b) {

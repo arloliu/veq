@@ -89,11 +89,10 @@ func run(ctx context.Context, cfg *config) (*result, error) {
 	if err := os.MkdirAll(cfg.out, 0o750); err != nil { //nolint:gosec // the operator names the output directory
 		return nil, err
 	}
-	dir, err := tracepack.NewDirSink(cfg.out, "")
+	sink, err := tracepack.NewDirSink(cfg.out, "", tracepack.DirSinkNoReplace())
 	if err != nil {
 		return nil, err
 	}
-	sink := &keepSink{inner: dir, root: cfg.out}
 	now := cfg.now
 	if now.IsZero() {
 		now = sv.last

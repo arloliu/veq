@@ -173,11 +173,11 @@ func (c *capture) finish(ctx context.Context) error {
 	if _, err := s.w.Close(); err != nil {
 		return fmt.Errorf("%s: close segment: %w", c.toolID, err)
 	}
-	if err := s.file.Commit(ctx); err != nil {
-		return fmt.Errorf("%s: commit segment: %w", c.toolID, err)
-	}
-	if f, ok := s.file.(*keepFile); ok && f.reused {
+	err := s.file.Commit(ctx)
+	if errors.Is(err, tracepack.ErrSegmentExists) {
 		c.stats.Reused++
+	} else if err != nil {
+		return fmt.Errorf("%s: commit segment: %w", c.toolID, err)
 	}
 	c.seg = nil
 

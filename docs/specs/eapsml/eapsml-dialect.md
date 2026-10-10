@@ -93,7 +93,7 @@ The converter `cmd/eapconv` writes tracepack `log` captures,
 following the tracepack specification (go-secs `docs/specs/tracepack/`) at the version veq pins (V-14).
 The multi-capture rules below are those of specification 2.29 (go-secs decisions G5-186 and G5-187),
 and the output and identity rules those of 2.31 (G5-192 and G5-193, V-19);
-the pinned v0.2.0 still reports 2.28, and the rules apply to the converter from the start (V-16).
+tracepack v0.3.0, pinned since VE decision V-23, implements 2.31.
 One run converts an ordered set of log files.
 
 - **One capture per equipment connection** found in the logs (§3):
