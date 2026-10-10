@@ -111,10 +111,25 @@ Each requirement states what the VE needs, why, and whether it is settled or ope
   and an archive is an immutable file.
   *Open*: the owner's decision.
 
+### 2.5 Isolation and loss
+
+- **LS-14 The traffic path never slows the tool's connection.**
+  The gateway's own bus carries the tool's live conversation with the EAP, and a fault there stops the tool;
+  so the traffic bus is a NATS cluster of its own (V-30),
+  and the gateway publishes to it asynchronously from a bounded buffer,
+  dropping what overflows rather than waiting.
+  *Open*: the gateway owners confirm both.
+- **LS-15 Every loss is visible.**
+  The traffic bus starts with one replica and file storage (V-30),
+  so a restart of its server loses what the gateway could not buffer meanwhile.
+  The VE accepts such loss when it reads as seq gaps, which the read of LS-10 reports, never as silence.
+  *Settled*: a dropped record is a seq gap ([STO §4]).
+
 ## 3. Questions outstanding
 
 | Question | For | Requirement |
 |---|---|---|
+| Asynchronous publishing to a separate bus, dropping on overflow | gateway owners | LS-14 |
 | Which side's header a record carries; both if possible | gateway owners | LS-2 |
 | Transport events and epochs from the observers | gateway owners | LS-3 |
 | Raw bytes of frames that fail to decode | gateway owners | LS-4 |

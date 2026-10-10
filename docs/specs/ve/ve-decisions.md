@@ -415,3 +415,15 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   a provisional name the owner may change before the repository exists.
   The name pairs with tracepack, the format it writes.
   What the VE requires of the service is in `docs/specs/ve/ve-log-service.md`.
+
+## 2026-10-10 traffic bus (owner)
+
+- V-30 The traffic log service's bus is a NATS cluster of its own,
+  separate from the equipment gateway's bus,
+  which carries the tools' live conversations with the EAP and stops a tool when it fails.
+  The traffic stream starts with one replica and file storage:
+  the bus holds a backlog while the service is down,
+  and a restart of the bus server loses traffic the gateway could not buffer,
+  which reads as seq gaps.
+  More replicas follow if the measured loss is too large.
+  The service's recovery time is a matter of minutes, set in its own service level.
