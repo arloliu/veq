@@ -75,7 +75,7 @@ Place each log as received under `traces/eap-sml/<tool-id>/<yyyy-mm-dd>.log`, th
    Its commit and the go-secs version enter every capture ID, and through it every pack ID;
    the tracepack and codec versions enter every pack ID.
    Use `go build`, not `go run`: `go run` stamps no commit, so the version reads `devel`;
-   a tree with uncommitted changes stamps it `+dirty`.
+   a tree with uncommitted changes stamps it `-dirty`.
 
 3. **List the connections**: run the converter with every flag but `-tool`.
    It reads the logs, writes nothing, and fails naming every connection it found with its message count,
