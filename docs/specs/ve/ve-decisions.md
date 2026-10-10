@@ -408,3 +408,10 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   A peer Reject.req, now observable, ends a VE transaction as `rejected` rather than at T3.
   `ve-architecture.md` §4 is updated accordingly, with its go-secs citations moved to v2.6.0;
   the spike's report and code are kept outside the repository.
+
+## 2026-10-10 traffic log service repository (owner)
+
+- V-29 The traffic log service's repository is `github.com/arloliu/tracekeep`,
+  a provisional name the owner may change before the repository exists.
+  The name pairs with tracepack, the format it writes.
+  What the VE requires of the service is in `docs/specs/ve/ve-log-service.md`.

@@ -33,6 +33,7 @@ Terminology: `H->E` host to equipment, `E->H` equipment to host.
   the equipment gateway sends the traffic it carries to it,
   and it packs the traffic as tracepack captures into the fab's object storage,
   where they serve learning and troubleshooting alike (one of tracepack's design goals).
+  What the VE requires of it is in [ve-log-service.md](ve-log-service.md).
   EAP logs converted by `cmd/eapconv` are the source until that service runs, and stay a second vantage afterwards.
 - The evidence model is that of [ve-architecture.md](ve-architecture.md) §6:
   vantage and known unobserved sources per capture,

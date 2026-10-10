@@ -664,7 +664,8 @@ until it passes the gate of §9.
 ## 12. Tooling and repositories
 `github.com/arloliu/veq` (runtime, schema, evaluator, registry, harness, converter at `cmd/eapconv`, `tools/miner/` Python);
 `github.com/arloliu/go-secs/tracepack`, a nested module of go-secs (format, codec, CLI; [ve-decisions.md](ve-decisions.md) R3-4);
-the traffic log service in its own repository (V-14).
+the traffic log service in its own repository, `github.com/arloliu/tracekeep` for now (V-14, V-29);
+its requirements from the VE are in [ve-log-service.md](ve-log-service.md).
 No go-secs core change is a pilot prerequisite.
 
 ## 13. Pilot gates
