@@ -33,8 +33,26 @@ How veq reads them is in [eapsml-dialect.md](../eapsml/eapsml-dialect.md);
 
 ### 2.1 What the pilot sample shows
 
-The measurement record (task, splits, denominators, all models compared) is kept with the CEID-prediction prototype that produced it,
-outside the main line.
+The next-event measurements come from a throwaway prototype, whose code is kept outside the main line.
+Task: predict the next collection event (CEID) on a held-out window, given the true history,
+with models frozen on the training window.
+Interpolation weights are fixed, so log-likelihoods compare models within one task only.
+On the 6-hour log, with 4 hours of training and 2 hours of test (3,019 test events):
+
+| Model | top-1 | top-3 | mean log-likelihood (nats) |
+|---|---|---|---|
+| global unigram | 9.9 % | 30.8 % | −3.37 |
+| global bigram | 51.5 % | 71.2 % | −1.93 |
+| global trigram | 58.4 % | 76.5 % | −1.73 |
+| independent modules (next module from the previous module) | 54.6 % | 74.0 % | −1.92 |
+| synchronised modules (next module from the previous events) | 56.3 % | 77.1 % | −1.68 |
+| within a module, module given | 77.3 % | 88.6 % | −0.92 |
+
+An earlier comparison of 55 % global against 71 % per module set two different tasks against each other;
+on one task, per-module models do not beat a global one.
+The gaps between events show no drift from the training to the test window (two-sample Kolmogorov–Smirnov, p = 0.34).
+Splitting by object (wafer, chamber) cannot be tested until the report definitions are known (§7).
+
 Two tools of one model are too few for any general claim;
 each item below says what was observed, how it is read, and what it motivates.
 
