@@ -1,6 +1,6 @@
 # P1 — A self-learning VE generation service
 
-Status: active (2026-10-10) — accepted; §8 applied; §1's move and phase 2's numbers pending
+Status: active (2026-10-10) — accepted; §8 applied; §1 moved to the evidence baseline; phase 2's numbers pending
 
 This proposal turns the first pilot evidence into a design for the service that generates Virtual Equipment (VE).
 The service learns each tool type's behaviour from evidence (the inner loop)
@@ -21,44 +21,7 @@ that the VE runtime executes ([ve-architecture.md](../ve-architecture.md) §3).
 
 ## 1. Evidence and what it does and does not show
 
-The pilot sample is the EAP logs of two etch tools of one model: 69 minutes and 6 hours of one day.
-The measurement record (task, splits, denominators, all models compared) is kept with the prototype that produced it,
-in `_proto/ceidpredict/README.md` on the branch `proto/ceid-predict`.
-Two tools of one model are too few for any general claim;
-each item below says what was observed, how it is read, and what it motivates.
-
-- **Module conditioning helps prediction.**
-  *Observed*: collection-event IDs group into modules by a vendor numbering convention.
-  On the 6-hour log (4 hours training, 3,019 held-out events), the next event within a known module is predicted 77 % top-1;
-  the next event of the whole stream, 58 % top-1.
-  *Reading*: the two numbers answer different questions (the first is told the module),
-  so they motivate a decomposition into module machines;
-  they do not prove it.
-- **Which module comes next depends on recent events.**
-  *Observed*: choosing the next module from the previous module alone loses to a global trigram;
-  choosing it from the previous events gives the best mean log-likelihood on both logs
-  (−1.68 against the trigram's −1.73 nats on the 6-hour log)
-  and the best top-3 there, but not the best top-1 (56 % against 58 %).
-  *Reading*: a predictive dependence between modules in this sample.
-  It does not tell synchronising transitions apart from common causes such as host commands or process stages;
-  hypothesis H1 tests the object-machine explanation.
-- **These captures are too short and too narrow.**
-  *Observed*: on the 6-hour log, accuracy levels off after 2–3 hours of training
-  while the event vocabulary still grows at 4 hours;
-  on the 69-minute log, 21 % of held-out events carry IDs never seen in training.
-  Neither log holds a connection start or a rejected command.
-  *Reading*: these captures miss behaviour the VE needs; how much log a tool type needs is measured per type, not assumed.
-- **What an EAP log cannot show.**
-  Report definitions (`S2F33`/`S2F35`/`S2F37`) were sent before the sample, so report values carry no variable names.
-  The log has no transport events, and its timestamps are log times, not wire times.
-  In one data-collection mode the equipment gateway itself polls the tool and pings it every minute,
-  and that traffic never reaches the EAP log.
-  One log can hold several equipment connections.
-- **Tools of one model share most of their observed catalogs.**
-  *Observed*: of the events both tools reported, 89 of 93 link to identical reports,
-  and about 96 % of shared equipment constants have the same format.
-  *Reading*: enough to motivate a shared tool-type layer;
-  it says nothing about guards, timing, values or quirks, which hypothesis H2 tests.
+Moved to [ve-evidence.md](../ve-evidence.md) §2, the evidence baseline of phase 1.
 
 ---
 

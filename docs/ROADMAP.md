@@ -18,5 +18,5 @@ Milestones after these are set by the re-derivation.
 
 ## Subjects
 
-- [VE](specs/ve/README.md): architecture (draft), generation service (draft), decisions, GEM behavioural skeleton.
+- [VE](specs/ve/README.md): architecture (draft), generation service (draft), evidence baseline (draft), decisions, GEM behavioural skeleton.
 - [eapsml](specs/eapsml/README.md): EAP SML log dialect and its tracepack mapping.

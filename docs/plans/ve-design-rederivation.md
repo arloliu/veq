@@ -35,6 +35,7 @@ Work (veq):
 - Write `docs/specs/ve/ve-evidence.md` (living):
   per source — EAP logs, gateway capture, manual, identifier exports, standards —
   what it supplies, what it cannot, and at what fidelity.
+  Started as `draft` with the pilot evidence, which moved there from P1 §1.
 - Record each finding that changes an earlier assumption as a decision entry.
 
 Done when `ve-evidence.md` is `current` and every input above is obtained or recorded as unavailable.
