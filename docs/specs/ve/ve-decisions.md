@@ -449,3 +449,14 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   within the generation service's data boundary,
   because Profiles, Run Journals and test reports are log-derived and never leave it.
   Agents hosted outside the fab are not part of P2's design.
+
+## 2026-10-11 tracepack v0.4.0 (owner)
+
+- V-33 veq pins `github.com/arloliu/go-secs/tracepack` at v0.4.0, which implements specification 2.32.
+  Format 1.0 and the converter's rules are unchanged from 2.31;
+  2.32 removes the catalog, views, retention and repair from the module, none of which veq used.
+  `cmd/eapconv` drops `WriterOptions.Codec`, since the writer now writes zstd unless told otherwise;
+  the codec stays in the pack_id derivation.
+  With the library versions held fixed,
+  a test conversion gave the same capture IDs, pack IDs and pack bytes under both versions;
+  a real build's IDs still change, because they hash the tracepack version (V-23).

@@ -14,6 +14,7 @@ import (
 )
 
 // The writer options of every segment, which its pack_id covers.
+// The writer compresses with segmentCodec unless told to write uncompressed.
 const (
 	segmentCodec          = tracepack.CodecZstd
 	segmentBlockThreshold = tracepack.DefaultBlockThreshold
@@ -150,7 +151,6 @@ func (c *capture) open(ctx context.Context, hour int64) error {
 	w, err := tracepack.NewWriter(file, tracepack.WriterOptions{
 		Meta:           &meta,
 		Facts:          tracepack.PackFacts{AnyClassified: true},
-		Codec:          segmentCodec,
 		BlockThreshold: segmentBlockThreshold,
 		Sync:           file,
 		PackID:         packID,

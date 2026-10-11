@@ -11,8 +11,8 @@ What its captures supply and cannot supply as evidence is in [ve-evidence.md](ve
 
 Decisions `G5-n` and proposal P8 belong to the tracepack specification (go-secs `docs/specs/tracepack/`),
 and `[STO §n]` is a section of its storage profile.
-veq pins tracepack v0.3.0 (V-23);
-the rulings cited below come with v0.4.0 (G5-201) and v0.5.0 (G5-200, P8, and format 1.1 for G5-207 and G5-208).
+veq pins tracepack v0.4.0 (V-33), which brings G5-201;
+the other rulings cited below come with v0.5.0 (G5-200, P8, and format 1.1 for G5-207 and G5-208).
 
 ---
 
