@@ -15,6 +15,7 @@ The design is in `docs/specs/ve/`; the roadmap is `docs/ROADMAP.md`.
 | `docs/` | specs, plans and guides under `450-doc-lifecycle.md` |
 | `scripts/` | repository checks (`docs-check.py`, `data-check.py`), git hooks (`hooks/`) and the manual page-text converter (`manual-text.py`) |
 | `data/` | sensitive inputs (vendor manuals, fab traffic logs) and their derived outputs, owner-only; only its `README.md` and `.gitignore` are tracked (`make data-check`) |
+| `site/` | the GitHub Pages site: a reading guide and the design explainer, deployed by `.github/workflows/pages.yml`; the explainer is refreshed from `docs/specs/ve/` and states the date of the design state it reflects |
 | `tmp/` | local scratch; gitignored |
 
 Create a package directory when its first code lands, not before.

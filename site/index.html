@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>veq 導讀</title>
+<style>
+:root{
+  --bg:#F5F7F9; --surface:#FFFFFF; --ink:#18212B; --muted:#5A6878; --line:#D9E0E7;
+  --accent:#1F5FA8; --accent-soft:#E7F0FA; --code:#EDF1F5;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#10161D; --surface:#18212B; --ink:#E4E9EE; --muted:#97A5B4; --line:#2B3846;
+    --accent:#6FAEE8; --accent-soft:#18304A; --code:#1F2B38;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  font-size:16px;line-height:1.8;padding:32px 16px 80px}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:32px;line-height:1.25;margin:0 0 8px}
+h2{font-size:21px;margin:36px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+p{margin:0 0 12px}
+.lede{color:var(--muted);font-size:17px}
+a{color:var(--accent)}
+code{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--code);padding:1px 5px;border-radius:4px}
+.card{display:block;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:8px;padding:14px 18px;margin:12px 0;text-decoration:none;color:var(--ink)}
+.card:hover{background:var(--accent-soft)}
+.card b{display:block;font-size:18px;color:var(--accent)}
+.card span{color:var(--muted);font-size:14px}
+ol{padding-left:1.4em}
+li{margin-bottom:6px}
+footer{margin-top:40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+<h1>veq 導讀</h1>
+<p class="lede">veq 打造虛擬機台（Virtual Equipment，VE）：從錄下的 host–equipment 通訊與廠商 GEM 手冊推導出的被動端半導體機台模擬器，讓 EAP、FDC 等 host 軟體不必接真機台就能開發與回歸測試。</p>
+</header>
+
+<h2>從這裡開始</h2>
+<a class="card" href="ve-design-explainer.html">
+<b>虛擬機台（VE）設計導讀</b>
+<span>白話與圖解：VE 是什麼、內部怎麼運作、怎麼從證據學出來。依據 2026-10-10 的設計狀態整理。</span>
+</a>
+<p>導讀是某個時間點的整理；設計仍在重新推導，內容以下列規格為準。</p>
+
+<h2>建議閱讀順序</h2>
+<ol>
+<li><a href="ve-design-explainer.html">設計導讀</a>：先建立全貌。</li>
+<li><a href="https://github.com/arloliu/veq/blob/main/docs/specs/ve/README.md"><code>docs/specs/ve/README.md</code></a>：規格目錄，列出每份文件的狀態與用途。</li>
+<li><a href="https://github.com/arloliu/veq/blob/main/docs/specs/ve/ve-decisions.md"><code>ve-decisions.md</code></a>：負責人的決定紀錄（V-1 起），只增不改。</li>
+<li><a href="https://github.com/arloliu/veq/blob/main/docs/specs/ve/ve-architecture.md"><code>ve-architecture.md</code></a>：架構草稿，重新推導的起點。</li>
+<li><a href="https://github.com/arloliu/veq/tree/main/docs/specs/ve">其餘規格</a>：generation service、GEM skeleton、證據基準、log service 與 proposals。</li>
+</ol>
+
+<h2>進度</h2>
+<p><a href="https://github.com/arloliu/veq/blob/main/docs/ROADMAP.md"><code>docs/ROADMAP.md</code></a>：里程碑與進行中的工作。</p>
+
+<footer>
+<a href="https://github.com/arloliu/veq">github.com/arloliu/veq</a>
+</footer>
+
+</div>
+</body>
+</html>

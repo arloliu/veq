@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>虛擬機台設計導讀</title>
+<style>
+:root{
+  --bg:#F5F7F9; --surface:#FFFFFF; --ink:#18212B; --muted:#5A6878; --line:#D9E0E7;
+  --accent:#1F5FA8; --accent-soft:#E7F0FA; --warn:#94600A; --warn-soft:#FDF3E1;
+  --ok:#256B45; --ok-soft:#E5F3EA; --code:#EDF1F5;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#10161D; --surface:#18212B; --ink:#E4E9EE; --muted:#97A5B4; --line:#2B3846;
+    --accent:#6FAEE8; --accent-soft:#18304A; --warn:#E3AE4F; --warn-soft:#3A2D12;
+    --ok:#79C79A; --ok-soft:#163222; --code:#1F2B38;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#10161D; --surface:#18212B; --ink:#E4E9EE; --muted:#97A5B4; --line:#2B3846;
+  --accent:#6FAEE8; --accent-soft:#18304A; --warn:#E3AE4F; --warn-soft:#3A2D12;
+  --ok:#79C79A; --ok-soft:#163222; --code:#1F2B38;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  font-size:16px;line-height:1.8;padding:32px 16px 80px}
+.wrap{max-width:1040px;margin:0 auto}
+header{margin-bottom:28px}
+h1{font-size:32px;line-height:1.25;margin:0 0 8px}
+.lede{color:var(--muted);font-size:17px;margin:0}
+.meta{color:var(--muted);font-size:13px;margin-top:8px}
+.meta a{color:var(--accent)}
+nav{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:20px 0 8px;font-size:14px}
+nav ol{margin:0;padding-left:1.4em;columns:2;column-gap:32px}
+@media (max-width:640px){nav ol{columns:1}}
+nav a{color:var(--accent);text-decoration:none}
+nav a:hover{text-decoration:underline}
+h2{font-size:23px;margin:48px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+h3{font-size:18px;margin:26px 0 6px}
+p{margin:0 0 12px}
+ul,ol{margin:0 0 12px;padding-left:1.4em}
+li{margin-bottom:4px}
+code{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--code);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0 4px}
+.key div{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px}
+.key b{display:block;margin-bottom:4px}
+.call{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0}
+.call.warn{background:var(--warn-soft);border-left-color:var(--warn)}
+.call.ok{background:var(--ok-soft);border-left-color:var(--ok)}
+.call p:last-child{margin-bottom:0}
+figure{margin:16px 0 20px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+figure .scroll{overflow-x:auto}
+figure svg{display:block;width:100%;height:auto;margin:0 auto}
+.dgw{min-width:540px;margin:0 auto}
+figcaption{color:var(--muted);font-size:14px;margin-top:8px}
+.tw{overflow-x:auto;margin:10px 0 16px}
+table{border-collapse:collapse;width:100%;font-size:15px;background:var(--surface)}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:13px;background:var(--bg)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.best td{background:var(--ok-soft)}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding-left:40px;margin-bottom:10px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:26px;height:26px;border-radius:50%;
+  background:var(--accent);color:var(--surface);font-size:13px;display:grid;place-items:center}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:0}
+dt{font-weight:600}
+dd{margin:0;color:var(--ink)}
+@media (max-width:560px){dl{grid-template-columns:1fr}dd{margin-bottom:8px}}
+.muted{color:var(--muted)}
+/* diagrams: every colour comes from the tokens above, so they follow the theme */
+.dg text{fill:var(--ink);font-size:13px}
+.dg text.t{font-weight:600;font-size:14px}
+.dg text.s{fill:var(--muted);font-size:11.5px}
+.dg text.m{text-anchor:middle}
+.dg .b{fill:var(--surface);stroke:var(--line);stroke-width:1.3}
+.dg .ba{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.3}
+.dg .bo{fill:var(--ok-soft);stroke:var(--ok);stroke-width:1.3}
+.dg .bw{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.3}
+.dg .grp{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:5 4}
+.dg .ar{fill:none;stroke:var(--muted);stroke-width:1.4;marker-end:url(#ah)}
+.dg .ar2{fill:none;stroke:var(--muted);stroke-width:1.4;marker-start:url(#ah);marker-end:url(#ah)}
+.dg .ln{stroke:var(--line);stroke-width:1.2}
+.dg .life{stroke:var(--line);stroke-width:1.4;stroke-dasharray:4 4}
+.ahp{fill:var(--muted)}
+.dg .iv-ok{stroke:var(--ok);stroke-width:6;stroke-linecap:round}
+.dg .iv-no{stroke:var(--warn);stroke-width:6;stroke-linecap:round}
+.dg .iv-mid{stroke:var(--muted);stroke-width:6;stroke-linecap:round;stroke-dasharray:2 7}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahp" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+</svg>
+<div class="wrap">
+
+<header>
+<p class="meta"><a href="./">← 返回導讀首頁</a></p>
+<h1>虛擬機台（VE）設計導讀</h1>
+<p class="lede">用白話與圖解說明：VE 是什麼、一台 VE 的內部怎麼運作、它怎麼從證據學出來，以及整個服務怎麼讓「上線一種新機型」越來越便宜。</p>
+<p class="meta">依據 2026-10-10 晚間的設計狀態整理：決定紀錄 V-1～V-19；proposal P1 的 §8 變更已套用到 <code>ve-architecture.md</code> 與 <code>ve-generation-service.md</code>（P1 §1 的搬移除外）；GEM skeleton 已加入物件狀態機（<code>ve-gem-skeleton.md</code> §6）。設計仍在重新推導（V-4），細節以 <a href="https://github.com/arloliu/veq/tree/main/docs/specs/ve"><code>docs/specs/ve/</code></a> 為準。</p>
+</header>
+
+<nav>
+<ol>
+<li><a href="#key">先抓住三個重點</a></li>
+<li><a href="#what">VE 是什麼、為什麼要做</a></li>
+<li><a href="#overview">全貌：兩層學習迴圈</a></li>
+<li><a href="#inside">一台 VE 的內部</a></li>
+<li><a href="#command">一條指令的旅程</a></li>
+<li><a href="#evidence">證據與轉換器</a></li>
+<li><a href="#layers">分層的 prior 與 learners</a></li>
+<li><a href="#interleave">最難的部分：交錯</a></li>
+<li><a href="#eval">評估與升版</a></li>
+<li><a href="#onboard">新機型上線與外層迴圈</a></li>
+<li><a href="#boundary">資料與安全的界線</a></li>
+<li><a href="#status">目前進度與缺口</a></li>
+<li><a href="#glossary">名詞小辭典</a></li>
+</ol>
+</nav>
+
+<h2 id="key">1. 先抓住三個重點</h2>
+<div class="key">
+<div><b>VE＝一群互相牽動的狀態機</b>GEM 狀態機、每個模組一份、每個物件（carrier、job、晶圓）一份，彼此透過同步轉移牽動，共用一個變數庫（V-10）。</div>
+<div><b>訓練＝分層 prior＋可替換的 learner</b>標準與手冊提供骨架，log 提供真實行為與時間。學出來的東西要過兩種分數與升版 gate，才會成為正式版本。</div>
+<div><b>服務本身也會學</b>「用哪個 learner、哪組參數」也是有指標的假設，記在 experiment registry。目標是用更少的證據與人時上線新機型。</div>
+</div>
+
+<h2 id="what">2. VE 是什麼、為什麼要做</h2>
+<p>EAP、FDC 這類 host 軟體要連真機才能測，但生產機台不能拿來試，錯誤情況也難製造。VE 是<b>扮演機台的程式</b>：站在 HSMS 被動端，送出和真機一樣的訊息、節奏，甚至一樣的「不合規」（quirk）。fab 裡機型很多，不可能一台一台手寫，所以真正要做的是一個<b>從證據學出 VE 的服務</b>。</p>
+<p>pilot log 裡有三個對象：VE 模擬<b>機台與它的 load-port controller</b>；第三個（stream 99）標為 FDC 連線，暫不模擬（V-18）。</p>
+<div class="call warn"><p><b>設計仍在重新推導</b>：負責人在 2026-10-09 重開整個設計（V-4），pilot gate 與各種數字在 phase 2 重新決定。本頁說的是「目前的方向」，不是定案。</p></div>
+
+<h2 id="overview">3. 全貌：兩層學習迴圈</h2>
+<figure><div class="scroll"><div class="dgw" style="max-width:680px">
+<svg class="dg" viewBox="0 0 640 590" role="img" aria-label="兩層學習迴圈的資料流">
+<rect class="b" x="40" y="10" width="360" height="82" rx="8"/>
+<text class="t" x="56" y="32">證據來源</text>
+<text x="56" y="52">手冊 → Spec Compiler → 帶頁碼的斷言</text>
+<text x="56" y="70">EAP SML log → cmd/eapconv → captures</text>
+<text x="56" y="86" class="s">traffic log service → captures（長期主要來源）</text>
+<path class="ar" d="M220,92 V110"/>
+<rect class="ba" x="40" y="112" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="137">證據庫：tracepack captures（標明 vantage 與盲點）</text>
+<path class="ar" d="M220,152 V170"/>
+<rect class="b" x="40" y="172" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="197">learners（Profile 每個部分一個，可替換）</text>
+<path class="ar" d="M220,212 V230"/>
+<rect class="b" x="40" y="232" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="257">candidate：Profile 或 tool delta</text>
+<path class="ar" d="M220,272 V290"/>
+<rect class="b" x="40" y="292" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="317">Evaluator：預測分數＋實際執行分數</text>
+<path class="ar" d="M220,332 V350"/>
+<rect class="bw" x="40" y="352" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="377">升版 gate（不通過：留在舊版）</text>
+<path class="ar" d="M220,392 V410"/>
+<text x="228" y="406" class="s">通過</text>
+<rect class="bo" x="40" y="412" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="437">Profile registry（只增不改、可重現）</text>
+<path class="ar" d="M220,452 V470"/>
+<rect class="b" x="40" y="472" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="497">VE runtime：扮演機台（HSMS 被動端）</text>
+<path class="ar2" d="M220,512 V530"/>
+<rect class="b" x="40" y="532" width="360" height="40" rx="8"/>
+<text class="m" x="220" y="557">待測 host：EAP（經 gateway）、FDC</text>
+<path class="ar" d="M40,492 H16 V192 H38"/>
+<text class="s" x="0" y="0" transform="translate(12,420) rotate(-90)">divergence → 新規則・quirk 候選・資料需求</text>
+<rect class="grp" x="428" y="150" width="204" height="210" rx="10"/>
+<text class="t" x="440" y="170">外層迴圈</text>
+<rect class="ba" x="440" y="180" width="180" height="62" rx="8"/>
+<text x="452" y="202">在已宣告方案中自動選</text>
+<text x="452" y="220" class="s">learner・prior・參數</text>
+<text x="452" y="236" class="s">新方案要人核准</text>
+<rect class="b" x="440" y="282" width="180" height="62" rx="8"/>
+<text x="452" y="304">experiment registry</text>
+<text x="452" y="322" class="s">事先登錄・結果・決定</text>
+<text x="452" y="338" class="s">只增不改</text>
+<path class="ar" d="M400,312 H438"/>
+<text x="404" y="306" class="s">結果</text>
+<path class="ar" d="M530,282 V244"/>
+<path class="ar" d="M440,200 H402"/>
+<text x="404" y="194" class="s">選擇</text>
+</svg></div></div>
+<figcaption>圖 1　左邊直列是內層迴圈（學會一種機型），右邊是外層迴圈（服務學會怎麼學）。兩個 registry 都只增不改，而且留在 fab 內。</figcaption></figure>
+<p>divergence 先來自離線重播，也來自 host 測試回報；證據不足時服務產生資料需求給人。外層迴圈見第 10 節。</p>
+<div class="call ok"><p><b>Profile</b>：一種機型（鍵：model＋firmware 範圍）的行為說明書，版本不可修改，每條規則記錄層級與來源。runtime 載入 Profile、可選的 <b>tool delta</b>（學出來的單台差異）與 <b>Instance Overlay</b>（站點設定）。原則：<b>skeleton 是程式，tool delta 是資料</b>；Profile 只能透過 gate 升版（架構 §2、§3）。</p></div>
+
+<h2 id="inside">4. 一台 VE 的內部</h2>
+<figure><div class="scroll"><div class="dgw" style="max-width:720px">
+<svg class="dg" viewBox="0 0 680 440" role="img" aria-label="一台 VE 的內部結構">
+<rect class="b" x="20" y="10" width="640" height="36" rx="8"/>
+<text class="m" x="340" y="33">Host（EAP 經 gateway、FDC）</text>
+<path class="ar" d="M120,46 V96"/>
+<text x="126" y="68" class="s">指令 S2F41・S3F17・S16F15</text>
+<text x="126" y="84" class="s">→ 先過 guard</text>
+<path class="ar" d="M330,46 V96"/>
+<text x="336" y="68" class="s">查詢 S1F3・S2F13</text>
+<text x="336" y="84" class="s">→ 讀變數庫</text>
+<path class="ar" d="M540,96 V46"/>
+<text x="546" y="68" class="s">S6F11＝轉移的輸出</text>
+<text x="546" y="84" class="s">S5F1＝警報範本</text>
+<rect class="grp" x="20" y="98" width="640" height="332" rx="10"/>
+<text class="t" x="34" y="120">一台 VE：Profile＋tool delta＋overlay 描述的東西</text>
+<rect class="ba" x="36" y="132" width="186" height="104" rx="8"/>
+<text class="t" x="48" y="154">GEM 狀態機</text>
+<text x="48" y="176">通訊・控制・處理</text>
+<text x="48" y="194">警報・spool</text>
+<text x="48" y="222" class="s">每台都有，骨架由標準規定</text>
+<rect class="ba" x="247" y="132" width="186" height="104" rx="8"/>
+<text class="t" x="259" y="154">模組狀態機</text>
+<text x="259" y="176">每個模組一份</text>
+<text x="259" y="194">例：傳送模組、製程腔體</text>
+<text x="259" y="222" class="s">結構從 log 學</text>
+<rect class="ba" x="458" y="132" width="186" height="104" rx="8"/>
+<text class="t" x="470" y="154">物件狀態機</text>
+<text x="470" y="176">每個物件一份，隨物件生滅</text>
+<text x="470" y="194">carrier・PJ・CJ・晶圓</text>
+<text x="470" y="222" class="s">E87・E40・E94・E90＋E39</text>
+<path class="ar2" d="M224,184 H245"/>
+<path class="ar2" d="M435,184 H456"/>
+<text class="m s" x="340" y="252">↔ 同步轉移：一個轉移可以要求或觸發另一個狀態機的轉移</text>
+<rect class="b" x="36" y="272" width="397" height="60" rx="8"/>
+<text class="t" x="48" y="294">共用變數庫 SV・DV・EC</text>
+<text x="48" y="318" class="s">每個變數一條時間軸，讓 S1F3、S6F1、S6F11 的值一致</text>
+<rect class="bw" x="458" y="272" width="186" height="60" rx="8"/>
+<text class="t" x="470" y="294">插槽（slot）</text>
+<text x="470" y="318" class="s">交錯選擇・值產生</text>
+<path class="ar" d="M234,236 V270"/>
+<text x="240" y="262" class="s">轉移時更新</text>
+<path class="ar" d="M551,272 V238"/>
+<rect class="b" x="36" y="350" width="608" height="62" rx="8"/>
+<text x="48" y="374">回覆規則・值產生器・時序分佈・已接受的 quirk</text>
+<text x="48" y="398" class="s">每條規則都記錄它屬於哪一層、從哪裡來</text>
+</svg></div></div>
+<figcaption>圖 2　Profile 描述的東西：三類並行的計時狀態機、一個共用變數庫、兩個插槽，以及回覆規則與時序（架構 §3.4）。</figcaption></figure>
+<p>訊息各有位置：查詢讀變數庫；<code>S6F11</code> 是轉移的輸出，report 是當下的變數快照；host 指令先過 guard；製程進度是 Scenario 與時鐘驅動的自發轉移。要把事件拆到個別晶圓或腔體，需要 report 定義。</p>
+<p><b>插槽</b>是唯一能放非狀態機元件的地方（交錯選擇、值產生）：只能從 guard 允許的轉移裡挑、只能透過變數歷史寫值、狀態存在 Instance State，所以一樣能 checkpoint 與重播。其餘都是可檢查的狀態機。</p>
+
+<h3>物件狀態機</h3>
+<p>E87（carrier）、E40（process job）、E94（control job）、E90（substrate）與 E39（物件服務）是 skeleton 的<b>可選能力</b>：機台只有手冊宣告的那些，標準當 prior，手冊與 log 提供差異（V-10）。主標準定義物件、狀態模型與抽象服務，<code>.1</code> 標準把服務對到 SECS-II。</p>
+<p>共通慣例：<b>一個轉移一個 CE</b>，同模型的所有物件共用，靠 report 裡的物件 ID 區分；標準不指定 CEID，所以 CEID 一律是機台資料。連鎖轉移會立刻接著走，但仍依序回報。</p>
+<figure><div class="scroll"><div style="min-width:640px;max-width:760px;margin:0 auto">
+<svg class="dg" viewBox="0 0 720 452" role="img" aria-label="一個 carrier、一個 control job、一個 process job 時物件狀態機的同步順序">
+<rect class="b" x="0" y="0" width="720" height="34"/>
+<text class="t" x="10" y="22">步驟</text>
+<text class="t m" x="282" y="22">Carrier E87</text>
+<text class="t m" x="407" y="22">Control job E94</text>
+<text class="t m" x="532" y="22">Process job E40</text>
+<text class="t m" x="657" y="22">Substrate E90</text>
+<line class="ln" x1="220" y1="0" x2="220" y2="452"/>
+<line class="ln" x1="345" y1="0" x2="345" y2="452"/>
+<line class="ln" x1="470" y1="0" x2="470" y2="452"/>
+<line class="ln" x1="595" y1="0" x2="595" y2="452"/>
+<text x="10" y="60">host 建立 PJ</text>
+<rect class="ba" x="478" y="44" width="110" height="26" rx="13"/><text class="m" x="533" y="62">排入（pooled）</text>
+<line class="ln" x1="0" y1="80" x2="720" y2="80"/>
+<text x="10" y="100">host 建立 CJ</text>
+<text x="10" y="116" class="s">指名 PJ 與 carrier</text>
+<rect class="ba" x="353" y="90" width="110" height="26" rx="13"/><text class="m" x="408" y="108">排隊 → 選定</text>
+<text class="m s" x="532" y="108">改由 CJ 決定順序</text>
+<line class="ln" x1="0" y1="126" x2="720" y2="126"/>
+<text x="10" y="146">carrier 到站</text>
+<text x="10" y="162" class="s">ID 與 slot map 驗證</text>
+<rect class="ba" x="228" y="136" width="110" height="26" rx="13"/><text class="m" x="283" y="154">驗證通過</text>
+<text class="m s" x="407" y="148">等待：carrier 未驗證</text>
+<text class="m s" x="407" y="162">不啟動任何 PJ</text>
+<rect class="ba" x="603" y="136" width="110" height="26" rx="13"/><text class="m" x="658" y="154">登錄：待處理</text>
+<line class="ln" x1="0" y1="172" x2="720" y2="172"/>
+<text x="10" y="194">第一個 PJ 的料就緒</text>
+<rect class="ba" x="353" y="182" width="110" height="26" rx="13"/><text class="m" x="408" y="200">執行中</text>
+<rect class="bw" x="478" y="182" width="110" height="26" rx="13"/><text class="m" x="533" y="200">準備中 ※</text>
+<path class="ar" d="M463,195 H476"/>
+<line class="ln" x1="0" y1="218" x2="720" y2="218"/>
+<text x="10" y="240">第一片晶圓離開 carrier</text>
+<rect class="ba" x="228" y="228" width="110" height="26" rx="13"/><text class="m" x="283" y="246">存取中</text>
+<rect class="ba" x="478" y="228" width="110" height="26" rx="13"/><text class="m" x="533" y="246">製程中</text>
+<rect class="ba" x="603" y="228" width="110" height="26" rx="13"/><text class="m" x="658" y="246">在工作中</text>
+<line class="ln" x1="0" y1="264" x2="720" y2="264"/>
+<text x="10" y="286">每片晶圓製程</text>
+<rect class="ba" x="603" y="274" width="110" height="26" rx="13"/><text class="m" x="658" y="292">製程中 → 完成</text>
+<line class="ln" x1="0" y1="310" x2="720" y2="310"/>
+<text x="10" y="332">最後一片回到 slot</text>
+<rect class="ba" x="228" y="320" width="110" height="26" rx="13"/><text class="m" x="283" y="338">carrier 完成</text>
+<rect class="bw" x="478" y="320" width="110" height="26" rx="13"/><text class="m" x="533" y="338">製程完成 ※</text>
+<rect class="ba" x="603" y="320" width="110" height="26" rx="13"/><text class="m" x="658" y="338">到達目的地</text>
+<line class="ln" x1="0" y1="356" x2="720" y2="356"/>
+<text x="10" y="378">所有 PJ 結束、晶圓歸位</text>
+<rect class="ba" x="353" y="366" width="110" height="26" rx="13"/><text class="m" x="408" y="384">完成</text>
+<line class="ln" x1="0" y1="402" x2="720" y2="402"/>
+<text x="10" y="424">carrier 卸載</text>
+<rect class="bo" x="228" y="412" width="485" height="26" rx="13"/><text class="m" x="470" y="430">四者都消滅；彼此的先後標準沒有規定 ※，由 tool delta 決定</text>
+</svg></div></div>
+<figcaption>圖 3　一個 carrier、一個 control job、一個 process job 的單片式機台，物件狀態機大致的同步順序（依 skeleton 草稿 6.6 整理）。標準只靠互相引用串起各模型，沒有一份給完整流程；標 ※ 的是推論。</figcaption></figure>
+<p>耦合規則：<b>驗證把關</b>（carrier 未驗證不啟動 PJ）、<b>pooling 取代排隊</b>（CJ 決定 PJ 順序）、<b>終止往下傳</b>（CJ 停止會傳到 PJ，反之不會）、<b>消滅跟著料走</b>。物件狀態會進 checkpoint；機台重啟、factory reset 時怎麼變仍待 phase 3。</p>
+
+<h2 id="command">5. 一條指令的旅程</h2>
+<figure><div class="scroll"><div class="dgw" style="max-width:700px">
+<svg class="dg" viewBox="0 0 660 380" role="img" aria-label="START 指令在 VE 內部的處理順序">
+<rect class="b" x="10" y="10" width="120" height="34" rx="8"/><text class="m" x="70" y="32">EAP</text>
+<rect class="ba" x="180" y="10" width="120" height="34" rx="8"/><text class="m" x="240" y="32">guard</text>
+<rect class="ba" x="350" y="10" width="140" height="34" rx="8"/><text class="m" x="420" y="32">job・模組狀態機</text>
+<rect class="b" x="530" y="10" width="120" height="34" rx="8"/><text class="m" x="590" y="32">變數庫</text>
+<line class="life" x1="70" y1="44" x2="70" y2="370"/>
+<line class="life" x1="240" y1="44" x2="240" y2="370"/>
+<line class="life" x1="420" y1="44" x2="420" y2="370"/>
+<line class="life" x1="590" y1="44" x2="590" y2="370"/>
+<path class="ar" d="M70,74 H238"/><text x="80" y="68">S2F41 START</text>
+<text x="250" y="96" class="s">現在能做嗎？host 指令受 LOCAL 限制</text>
+<path class="ar" d="M240,126 H72"/><text x="80" y="120">S2F42 HCACK=4</text>
+<text x="80" y="140" class="s">接受，稍後完成</text>
+<path class="ar" d="M240,160 H418"/><text x="250" y="154">accepted-pending</text>
+<path class="ar" d="M420,196 H588"/><text x="430" y="190">轉移時更新變數</text>
+<path class="ar" d="M420,232 H72"/><text x="190" y="226">S6F11 事件＋report（事件當下的快照）</text>
+<path class="ar" d="M70,270 H588"/><text x="190" y="264">S1F3 查詢變數</text>
+<path class="ar" d="M590,306 H72"/><text x="190" y="300">S1F4 回覆目前的值</text>
+<path class="ar" d="M420,344 H72"/><text x="190" y="338">S6F11 完成事件</text>
+</svg></div></div>
+<figcaption>圖 4　host 下 START 之後 VE 內部的示意。實際會發哪些事件、什麼順序，由學出來的 Profile 決定。</figcaption></figure>
+<p>guard 的結果有四種（架構 §3.2）：<code>performed</code>、<code>accepted-pending</code>（<code>HCACK=4</code>）、<code>rejected</code>、<code>stalled</code>（只用於 Scenario）。guard 看<b>來源</b>：host 指令受 LOCAL 模式限制，操作員動作不受。回覆之後還有依時間展開的狀態變化，所以 VE 不能只是查表回覆。</p>
+
+<h2 id="evidence">6. 證據與轉換器</h2>
+<p>pilot 樣本是同型號兩台蝕刻機一天的 EAP log（69 分鐘與 6 小時，P1 §1），看得出這種 log 的極限：</p>
+<div class="tw"><table>
+<tr><th>EAP log 給得出</th><th>給不出</th></tr>
+<tr><td>事件順序與頻率、回覆格式、host 查了哪些 ID</td><td>report 值對應哪個變數（定義在樣本開始前就送過）</td></tr>
+<tr><td>EAP 端的記錄時間（0.1 ms）</td><td>線上時間，以及連線、Select、T3 等傳輸事件</td></tr>
+<tr><td>被接受的指令</td><td>被拒的指令、連線建立（樣本裡都沒有）</td></tr>
+<tr><td>一天內出現的事件</td><td>罕見事件：第 4 小時事件種類還在增加；69 分鐘那份有 21% 測試事件的 ID 沒看過</td></tr>
+<tr><td>—</td><td>gateway 自己對機台的流量（某種 FDC 模式下會 polling、每分鐘 ping）</td></tr>
+</table></div>
+<p>長期主要來源是 <b>traffic log service</b>：從 gateway 拿流量，打包成 captures 存進 fab 的物件儲存；它在自己的 repository，veq 只讀（V-12、V-14）。在那之前用轉換後的 EAP log，之後它仍是另一個觀察位置。證據來歷沿用 tracepack 欄位（V-7）：pack 的 <code>capture_method</code>、<code>vantage</code>，記錄的 <code>fidelity</code>；傳輸層與壞 frame 的證據一定要 <code>wire-exact</code>。</p>
+<div class="call warn"><p><b>盲點宣告</b>：每個 capture 都要宣告已知看不到的流量（例如 gateway 自己發給機台的訊息）。learner 不能把「沒看到」當成「沒發生」。</p></div>
+
+<h3>轉換器 cmd/eapconv：log 變成 captures</h3>
+<figure><div class="scroll"><div class="dgw" style="max-width:720px">
+<svg class="dg" viewBox="0 0 680 380" role="img" aria-label="cmd/eapconv 把 EAP log 依連線拆成 captures">
+<rect class="b" x="10" y="110" width="150" height="100" rx="8"/>
+<text class="t" x="22" y="134">EAP SML log</text>
+<text x="22" y="156" class="s">一次 run 轉一組</text>
+<text x="22" y="172" class="s">有順序的檔案</text>
+<text x="22" y="196" class="s">來源＝檔名＋SHA-256</text>
+<path class="ar" d="M160,160 H186"/>
+<rect class="ba" x="188" y="90" width="196" height="140" rx="8"/>
+<text class="t" x="200" y="114">依連線分流</text>
+<text x="200" y="138" class="s">有 DEVICEID 就用它，</text>
+<text x="200" y="154" class="s">否則用 header 的 session；</text>
+<text x="200" y="170" class="s">回覆跟著它的 primary</text>
+<text x="200" y="194" class="s">每條連線要有操作員給的</text>
+<text x="200" y="210" class="s">tool ID，缺一個就整個失敗</text>
+<path class="ar" d="M384,130 L408,46"/>
+<path class="ar" d="M384,145 L408,112"/>
+<path class="ar" d="M384,175 L408,178"/>
+<path class="ar" d="M384,200 L408,244"/>
+<rect class="bo" x="410" y="20" width="260" height="52" rx="8"/>
+<text x="422" y="42">capture：機台</text>
+<text x="422" y="60" class="s">VE 模擬（V-18）</text>
+<rect class="bo" x="410" y="86" width="260" height="52" rx="8"/>
+<text x="422" y="108">capture：load-port controller</text>
+<text x="422" y="126" class="s">VE 模擬（V-18）</text>
+<rect class="b" x="410" y="152" width="260" height="52" rx="8"/>
+<text x="422" y="174">capture：FDC 連線（stream 99）</text>
+<text x="422" y="192" class="s">照寫，但暫不模擬</text>
+<rect class="b" x="410" y="218" width="260" height="52" rx="8"/>
+<text x="422" y="240">capture：EAP 自己</text>
+<text x="422" y="258" class="s">不屬於任何連線的行（V-16、V-17）</text>
+<path class="ar" d="M540,270 V296"/>
+<rect class="ba" x="188" y="298" width="482" height="72" rx="8"/>
+<text class="t" x="200" y="320">輸出：generation-0 segment packs</text>
+<text x="200" y="342" class="s">每個 capture、每個 UTC 小時一個 pack；同樣的檔案與設定 → 同樣的 ID 與 bytes</text>
+<text x="200" y="360" class="s">key 已有相同 bytes → 保留；不同 bytes → run 失敗，絕不覆寫（V-19）</text>
+</svg></div></div>
+<figcaption>圖 5　一次轉換的流向。每個 capture 只放自己連線的內容，輸入的每段 bytes 剛好落在一個 capture 的一筆記錄或註記裡（eapsml-dialect §5）。</figcaption></figure>
+<ul>
+<li><b>一連線一 capture</b>：transaction key 與 epoch 以 capture 為範圍，混在一起會混到 System Bytes。</li>
+<li><b>不丟東西</b>：能解析的訊息成為 <code>data</code> 記錄（<code>reconstructed</code>）；加密、解不開或非訊息的內容成為帶原始 bytes 的註記。log 沒有連線事件，所以每筆都在 epoch 0、標 <code>correlation-incomplete</code>。</li>
+<li><b>版本</b>：veq 釘在 tracepack v0.2.0（V-14，仍回報規格 2.28），轉換器先照 2.29／2.31 的規則做（V-16、V-19）。</li>
+</ul>
+<p class="muted">在其中一個 EAP 版本上，stream 99 對象的訊息帶機台的 session ID，連線規則分不出來，會落在機台的 capture（eapsml-dialect §3）。</p>
+
+<h2 id="layers">7. 分層的 prior 與 learners</h2>
+<figure><div class="scroll"><div class="dgw" style="max-width:640px">
+<svg class="dg" viewBox="0 0 600 330" role="img" aria-label="四層 prior 與 Instance Overlay">
+<rect class="b" x="40" y="10" width="360" height="56" rx="8"/>
+<text class="t" x="54" y="32">標準層</text>
+<text x="54" y="54" class="s">GEM 與物件標準的通用行為・來源：SEMI 標準</text>
+<rect class="b" x="40" y="86" width="360" height="56" rx="8"/>
+<text class="t" x="54" y="108">vendor／家族層</text>
+<text x="54" y="130" class="s">同廠商的慣例：ID 編號、手冊結構、常見 quirk</text>
+<rect class="ba" x="40" y="162" width="360" height="56" rx="8"/>
+<text class="t" x="54" y="184">機型層（Profile 本體）</text>
+<text x="54" y="206" class="s">目錄、狀態機、report、時序・來源：手冊＋同型機台的 log</text>
+<rect class="bo" x="40" y="238" width="360" height="56" rx="8"/>
+<text class="t" x="54" y="260">單台機台（tool delta）</text>
+<text x="54" y="282" class="s">啟用的選項、EC 值、EAP 設定造成的差異</text>
+<path class="ar" d="M24,40 V264"/>
+<text class="s" x="0" y="0" transform="translate(18,200) rotate(-90)">上層當下層的 prior</text>
+<rect class="bw" x="430" y="238" width="160" height="56" rx="8"/>
+<text class="t" x="442" y="260">Instance Overlay</text>
+<text x="442" y="282" class="s">站點設定，最優先</text>
+<path class="ar" d="M420,280 V40"/>
+<text class="s" x="0" y="0" transform="translate(438,190) rotate(-90)">衝突時越具體越優先</text>
+</svg></div></div>
+<figcaption>圖 6　四層 prior（架構 §3.5）。下層只有在證據支持時才覆蓋上層；同型號所有機台的 log 一起訓練機型層。</figcaption></figure>
+<p>好處：新機台資料少也能借用上層知識，差異也知道該歸哪層。pilot 兩台同型機共有的 93 個事件中 89 個連到相同 report（P1 §1），剩下的屬於 tool delta，不該污染機型層。</p>
+<h3>同一件事有好幾條規則時，聽誰的？（架構 §5）</h3>
+<ol class="steps">
+<li>只有 <code>accepted</code>、<code>override</code> 的規則生效；影響評分的 <code>unresolved</code> 擋住升版。</li>
+<li>Instance Overlay 最優先。</li>
+<li>再來越具體越優先：tool delta → 機型 → vendor → 標準；下層牴觸上層就是 quirk，要有證據並被接受。</li>
+<li>同層內：override → 已接受的 quirk → 手冊斷言 → library 預設。</li>
+</ol>
+<h3>learner 的共同介面（架構 §7）</h3>
+<div class="call"><p><b>輸入</b>：一段證據＋目標層以上各層的 prior　→　<b>輸出</b>：某一層的片段，每條規則附來源、層級與信心值。</p></div>
+<p>例如目錄由 <code>cmd/logcat</code>、手冊萃取與 ID 匯出檔學；模組內結構用被動自動機學習，以標準與手冊的狀態圖為 prior；交錯可用事件鍵控的模組選擇、物件狀態機的組合或插槽裡的序列模型。learner 可替換、在同一套 suite 上比較，外層迴圈才能挑；演算法留給 phase 3 與實作。</p>
+<div class="call warn"><p><b>尚未對齊</b>：架構 §6 不讓帶 <code>correlation-incomplete</code> 旗標的記錄成為 quirk 候選，但轉換後的 EAP log 每筆都帶這個旗標，而 G4-28（V-7 確認仍有效）允許 reconstructed 證據學語意層 quirk。三者怎麼搭配，規格還沒說。</p></div>
+
+<h2 id="interleave">8. 最難的部分：交錯</h2>
+<p>可行性原型用 6 小時那份 log 的前 4 小時學，預測其後 3,019 個事件的「下一個」（數字取自 P1 §1）：</p>
+<div class="tw"><table>
+<tr><th>模型</th><th>猜中第一名</th><th>平均 log-likelihood</th></tr>
+<tr><td>整條事件流，看前兩個事件（全域 trigram）</td><td class="num">58%</td><td class="num">−1.73</td></tr>
+<tr class="best"><td>看前面的事件決定下一個模組（事件鍵控）</td><td class="num">56%</td><td class="num">−1.68</td></tr>
+<tr><td><i>參考：已知是哪個模組，只猜模組內的下一個</i></td><td class="num">77%</td><td class="num">—</td></tr>
+</table></div>
+<ul>
+<li>77% 與 58% 回答的是不同問題：它們支持「拆成模組狀態機」，但不是證明。</li>
+<li>只看上一個模組來選下一個模組，輸給全域 trigram；看前面的事件，log-likelihood 與前三名命中率最好，第一名略輸。</li>
+<li>這表示模組之間有<b>可預測的相依</b>，但分不出是同步轉移，還是 host 指令、製程階段這類共同原因。「物件狀態機能解釋交錯」是假設 H1，要有 report 定義的資料才能檢驗。</li>
+</ul>
+<p class="muted">log-likelihood：模型給實際事件的機率取對數平均，越接近 0 越好（給 50% 是 −0.69，給 10% 是 −2.30）。</p>
+
+<h2 id="eval">9. 評估與升版</h2>
+<figure><div class="scroll"><div class="dgw" style="max-width:700px">
+<svg class="dg" viewBox="0 0 680 200" role="img" aria-label="預測分數與實際執行分數">
+<rect class="ba" x="10" y="10" width="320" height="180" rx="10"/>
+<text class="t" x="26" y="36">預測分數（teacher forcing）</text>
+<circle class="b" cx="40" cy="70" r="12"/><circle class="b" cx="90" cy="70" r="12"/><circle class="b" cx="140" cy="70" r="12"/>
+<path class="ar" d="M52,70 H76"/><path class="ar" d="M102,70 H126"/><path class="ar" d="M152,70 H176"/>
+<text x="186" y="75">下一個？</text>
+<text x="26" y="112" class="s">每一步都給真實歷史，</text>
+<text x="26" y="130" class="s">記下模型給實際事件的機率</text>
+<text x="26" y="166">便宜，用來挑 learner</text>
+<rect class="bw" x="350" y="10" width="320" height="180" rx="10"/>
+<text class="t" x="366" y="36">實際執行分數（closed tape）</text>
+<circle class="b" cx="380" cy="70" r="12"/><circle class="b" cx="430" cy="70" r="12"/><circle class="bw" cx="480" cy="86" r="12"/><circle class="bw" cx="530" cy="102" r="12"/>
+<path class="ar" d="M392,70 H416"/><path class="ar" d="M442,74 L466,82"/><path class="ar" d="M492,90 L516,98"/>
+<text x="550" y="106" class="s">一步錯，步步偏</text>
+<text x="366" y="130" class="s">餵錄下的 host 輸入與交易結果，VE 自己選轉移，</text>
+<text x="366" y="148" class="s">輸出和真機錄下的比對</text>
+<text x="366" y="176">抓漂移，升版必須通過</text>
+</svg></div></div>
+<figcaption>圖 7　兩種分數（架構 §8.4）。預測分數會高估：猜錯一次，下一步仍從正確位置繼續；真正上線時 VE 選錯一次，後面可能整條路都偏。</figcaption></figure>
+<ul>
+<li><b>考題由 suite 固定</b>，不由 candidate 決定；每個事件都要給大於 0 的機率，沒看過的 ID 走明確的未知事件額度。</li>
+<li><b>時序</b>依 suite 定義的轉移類別評分，標明觀察位置：EAP log 的時間是 host 端時間。</li>
+<li><b>原有防護保留</b>：凍結評分母體、第一個走錯就算失敗、coverage 不退步、negative control、絕對下限、scorecard 不加總。下限數值由 phase 2 定（架構裡的 95%／fixture 100% 是 V-4 之前的預設）。</li>
+</ul>
+<h3>證據切成三份</h3>
+<figure><div class="scroll"><div class="dgw" style="max-width:700px">
+<svg class="dg" viewBox="0 0 680 230" role="img" aria-label="證據三分法">
+<rect class="b" x="10" y="10" width="210" height="110" rx="8"/>
+<text class="t" x="22" y="34">共用訓練</text>
+<text x="22" y="58" class="s">可以塑造共用資產：vendor・</text>
+<text x="22" y="76" class="s">標準 prior、learner、特徵</text>
+<text x="22" y="104" class="s">被評估的目標絕不在裡面</text>
+<rect class="ba" x="235" y="10" width="210" height="110" rx="8"/>
+<text class="t" x="247" y="34">適應</text>
+<text x="247" y="58" class="s">被評估的 artifact 可以學：</text>
+<text x="247" y="76" class="s">目標的手冊、ID 匯出檔、</text>
+<text x="247" y="94" class="s">宣告好的訓練前段</text>
+<rect class="bw" x="460" y="10" width="210" height="110" rx="8"/>
+<text class="t" x="472" y="34">確認（assessment）</text>
+<text x="472" y="58" class="s">只打分：不給 learner、</text>
+<text x="472" y="76" class="s">不給提案者，整條 lineage</text>
+<text x="472" y="94" class="s">都排除</text>
+<rect class="bo" x="235" y="170" width="210" height="48" rx="8"/>
+<text class="m" x="340" y="199">被評估的 artifact</text>
+<path class="ar" d="M115,120 L250,168"/><text x="120" y="156" class="s">透過 prior</text>
+<path class="ar" d="M340,120 V168"/><text x="346" y="150" class="s">直接學</text>
+<path class="ar" d="M565,120 L432,168"/><text x="520" y="156" class="s">只打分</text>
+</svg></div></div>
+<figcaption>圖 8　每個實驗與上線 episode 都把證據分三份；registry 記錄每個 artifact 用了哪些證據（lineage），所以切分可以被檢查（架構 §8.5）。</figcaption></figure>
+<ul>
+<li><b>考法</b>：time-split、tool-split、type-split；宣稱「新機型也行」一定要 type-split。</li>
+<li><b>挑選用與確認用</b>：挑選用的可反覆用；確認用的只確認已做好的選擇，每次使用都記帳、只回傳判定與 scorecard，誰都不能從中學。看過確認結果才提的方案要用全新資料再確認；額度用完只能換從未用過的證據。</li>
+<li><b>獨立單位</b>：兩台機台的幾千個事件，仍只是兩次重複。</li>
+</ul>
+<h3>升版（架構 §9、§11）</h3>
+<ul>
+<li><b>升版的是實際部署的組合</b>（Profile、tool delta、runtime 載入的組合），每一個都不可修改、可重現。</li>
+<li><b>gate 是確定性的</b>：兩種分數都過下限；tool delta 在自己機台的 suite 上和「沒有 delta 的 Profile」比；上層變更會產生所有受影響 Profile 的新版本，都不能退步，且要人核准。</li>
+<li><b>來源階段不是擬真度</b>：R 重播 → T 範本 → M 手冊推導 → C 校準 → S 學出結構 → G 假設，只說明規則從哪來；擬真度只能量出來。</li>
+</ul>
+
+<h2 id="onboard">10. 新機型上線與外層迴圈</h2>
+<ol class="steps">
+<li><b>只有手冊</b>：產生 <b>provisional</b> Profile，只過不需要 log 的檢查，標為 <i>manual-derived</i>，不宣稱擬真度。</li>
+<li><b>資料需求</b>：依同類機型的 learning curve 估算還要多少 log，並建議開哪些錄製。絕不探測生產機台，只保留「維修時段、經人核准」的 hook。</li>
+<li><b>資料到齊</b>：重新學習，過完整 gate 才拿掉 provisional。</li>
+</ol>
+<h3>外層迴圈的目標：一次上線 episode 的成本</h3>
+<p>每次上線事先宣告成 <b>episode</b>：起點（手上的資料、各層 prior 的固定版本）、固定的目標、成本（兩個維度：證據的 tool-hours 與分類記錄的人時）。失敗的 episode 連同成本記錄，絕不丟掉。</p>
+<p><b>比較方案（V-11）</b>：先比成功率，不能降超過容忍度；再比兩邊都完成的 episode，兩個成本維度都不能變差超過容忍度、至少一個變好。其他情況交給人，不設權重。建共用資產（例如 vendor prior）是一次有預算、要核准的外層變更，效益只能在一整批 episode 上算總帳。</p>
+<p><b>自主的範圍</b>：服務只在已宣告的方案（learner、超參數、prior 權重）中自動選；新方案，包括 LLM 提的，先登錄為假設，人核准後才跑。人工審查也有預算。</p>
+<h3>事先登錄與判定規則</h3>
+<p>實驗在看到結果<b>之前</b>就把方案、cohort、證據、suite、指標與判定規則（含 margin δ）寫進 registry；資料庫拒絕沒有事先登錄或登錄晚於執行的結果。增益在每個獨立單位上量，取不確定區間和 δ 比：</p>
+<figure>
+<svg class="dg" viewBox="0 0 640 170" role="img" aria-label="判定規則示意" style="max-width:640px">
+<line class="life" x1="330" y1="8" x2="330" y2="162"/>
+<text x="336" y="22">δ</text>
+<text x="10" y="55">採用</text>
+<line class="iv-ok" x1="360" y1="50" x2="560" y2="50"/>
+<text x="10" y="100">否定</text>
+<line class="iv-no" x1="90" y1="95" x2="290" y2="95"/>
+<text x="10" y="145">無定論</text>
+<line class="iv-mid" x1="230" y1="140" x2="450" y2="140"/>
+</svg>
+<figcaption>圖 9　整個區間在 δ 以上且沒觸發 veto → 採用；整個在 δ 以下或觸發 veto → 否定；跨過 δ → 無定論，維持現狀。共通 veto：實際執行分數退步、破 scorecard 下限、必過 fixture 失敗。</figcaption>
+</figure>
+<div class="tw"><table>
+<tr><th></th><th>初始假設（ve-generation-service §2.4）</th><th>單位</th></tr>
+<tr><td>H1</td><td>物件狀態機比事件鍵控的模組選擇更能解釋交錯</td><td>機型</td></tr>
+<tr><td>H2</td><td>機型 prior＋tool delta 勝過每台獨立學（likelihood 與回覆相符率分開判）</td><td>機台</td></tr>
+<tr><td>H3</td><td>vendor 層 prior 讓新機型少收證據</td><td>機型</td></tr>
+<tr><td>H4</td><td>手冊的行為斷言減少「沒看過的事件」的懲罰</td><td>機型</td></tr>
+<tr><td>H5</td><td>LLM 提的假設值得人花時間審（每審查小時的經驗證發現數）</td><td>審查批次</td></tr>
+</table></div>
+
+<h2 id="boundary">11. 資料與安全的界線</h2>
+<ul>
+<li><b>traffic log 不出 fab</b>：學習只在本地 CPU 跑，每個 fab 一套服務；Profile 承接錄製資料的存取控制，也不出 fab。手冊可以送外部 LLM 萃取斷言。</li>
+<li><b>LLM 只當顧問</b>：打分與升版一律由確定性程式決定，外部模型的回覆只能當提案。不探測生產機台。</li>
+<li><b>兩個 registry 只增不改</b>（V-12）：artifact 以內容雜湊命名存在 fab 的 MinIO，拒絕覆寫與刪除；紀錄存在 fab 的 MariaDB，服務帳號沒有 UPDATE／DELETE 權限。</li>
+</ul>
+<h3>從 log 衍生的內容送出 fab 時（V-11）</h3>
+<div class="tw"><table>
+<tr><th>可以送出</th><th>不能送出</th></tr>
+<tr><td>彙總指標（scorecard、比率、次數、分位數）</td><td>原始訊息與 SML 內容，片段也不行</td></tr>
+<tr><td>結構，ID 換成每次放行重發的代號</td><td>真實的 SVID／ECID／CEID／RPTID／ALID／RCMD 與名稱、單位</td></tr>
+<tr><td>stream/function 與 SEMI 定義的代碼（HCACK、ALCD）</td><td>變數值與範圍、recipe 名稱與內容</td></tr>
+<tr><td>learner 與參數的描述</td><td>機台、站點、lot、carrier、晶圓識別碼；絕對時間</td></tr>
+<tr><td>至少 <i>k</i> 次、至少兩台機台的模式</td><td>低於門檻的罕見模式</td></tr>
+</table></div>
+<p>未分類的一律不送；新類別與範本由負責人指定的人核准；每次放行都記錄。<i>k</i> 由 phase 2 決定。</p>
+
+<h2 id="status">12. 目前進度與缺口</h2>
+<div class="tw"><table>
+<tr><th>項目</th><th>狀態</th></tr>
+<tr><td>repository 骨架、docs check、<code>eapsml</code>／<code>logcat</code></td><td>完成</td></tr>
+<tr><td><code>cmd/eapconv</code>（EAP log → tracepack）</td><td>完成（V-16、V-17、V-19）；tracepack 釘在 v0.2.0，2.29／2.31 的規則已先套用</td></tr>
+<tr><td>proposal P1</td><td>已接受（V-13），仍 active：§8 已套用、其餘移到 generation service spec（V-15）；§1 待移到 phase 1 的證據基線</td></tr>
+<tr><td>GEM skeleton 的物件狀態機</td><td>完成（<code>ve-gem-skeleton.md</code> §6）：E39、E87、E40、E94、E90 與各自的 .1 對應</td></tr>
+<tr><td>phase 1：證據基線</td><td>計畫仍為 draft，等負責人核准；待取得 ID 匯出檔、report／link 定義、含連線建立與完整 carrier 週期的多日 log、手冊與機台軟體版本間的變更說明</td></tr>
+<tr><td>phase 2：目標與 pilot gate</td><td>尚未開始；要定下限、預算、δ、容忍度、審查效益門檻、<i>k</i>，以及遺失的 G0～G4</td></tr>
+<tr><td>phase 3：逐一推導合約</td><td>尚未開始；開放項包括物件與插槽狀態在重啟時的去留、conversation 規則、skeleton 能力邊界、重播比對規則、registry 內容</td></tr>
+</table></div>
+<div class="call warn"><p><b>最大的限制仍是資料</b>：沒有 report 定義，就無法依晶圓或腔體拆分事件，也就無法檢驗 H1；只有一天的 log，罕見事件、錯誤路徑與連線建立都學不到。</p></div>
+
+<h2 id="glossary">13. 名詞小辭典</h2>
+<dl>
+<dt>EAP</dt><dd>Equipment Automation Program，工廠端控制機台的 host 程式。</dd>
+<dt>gateway</dt><dd>介於機台與 EAP／FDC 之間的設備閘道，也可能自己回覆或發出訊息。</dd>
+<dt>Profile</dt><dd>一種機型的行為說明書，有版本、不可修改。</dd>
+<dt>tool delta</dt><dd>學出來的單台差異，獨立有版本。</dd>
+<dt>Instance Overlay</dt><dd>操作員的站點設定，優先於學出來的規則。</dd>
+<dt>capture／pack</dt><dd>tracepack 的一次錄製與組成它的檔案；轉換器每條連線一個 capture、每小時一個 segment pack。</dd>
+<dt>vantage／fidelity</dt><dd>觀察位置，與每筆記錄的保真度。</dd>
+<dt>prior</dt><dd>看資料前的合理預設，來自上層。</dd>
+<dt>learner</dt><dd>負責學出 Profile 某一部分的可替換元件。</dd>
+<dt>插槽（slot）</dt><dd>交錯選擇與值產生兩處，可放非狀態機元件。</dd>
+<dt>quirk</dt><dd>不合標準、但真機確實如此的行為；VE 要重現它。</dd>
+<dt>divergence</dt><dd>VE 與真機不一致之處。</dd>
+<dt>suite／gate</dt><dd>凍結的考卷；升版門檻。</dd>
+<dt>episode</dt><dd>一次事先宣告的新機型上線，用來量成本。</dd>
+<dt>δ（margin）</dt><dd>事先定好「增益至少多大才採用」。</dd>
+</dl>
+
+</div>
+</body>
+</html>
