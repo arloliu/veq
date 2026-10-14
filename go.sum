@@ -1,5 +1,5 @@
-github.com/arloliu/go-secs/tracepack v0.4.0 h1:03i4SP5w7sIEmHNuuUxtqcbQhMnXab5hlfXB1jzCCL4=
-github.com/arloliu/go-secs/tracepack v0.4.0/go.mod h1:FEWQnfAMaRwt3X2piJYjrlsNUhxIdK44rL7BUMykvqc=
+github.com/arloliu/go-secs/tracepack v0.5.1 h1:5Ly7TcxINdm/1U18jjqfYFm0jyYygAwc88iOkQYp3/0=
+github.com/arloliu/go-secs/tracepack v0.5.1/go.mod h1:PAwkmLYeWyBgKmMgcN/1XSGRfVq+OQeUYdfYnJ0I1Tw=
 github.com/arloliu/go-secs/v2 v2.6.0 h1:Tgqy+Oob1GQ9y3UR4r7/W2OqOZiOWFC1w/YJs5CK5dk=
 github.com/arloliu/go-secs/v2 v2.6.0/go.mod h1:SEbNIic8oZ6zb0EW/ldiw7gfQNPgePSDqpZITKHqiHA=
 github.com/klauspost/compress v1.20.1 h1:T7kKElXUMXrUJ2E9QhQhxFtcK5rPyLdsGZvdbLMPdiQ=
@@ -12,5 +12,7 @@ github.com/stretchr/objx v0.5.3 h1:jmXUvGomnU1o3W/V5h2VEradbpJDwGrzugQQvL0POH4=
 github.com/stretchr/objx v0.5.3/go.mod h1:rDQraq+vQZU7Fde9LOZLr8Tax6zZvy4kuNKF+QYS+U0=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/tink-crypto/tink-go/v2 v2.8.0 h1:1zODq1bZDqOQdNPjhvwGYLDw9On7mDWPnQf+4xXlpAc=
+github.com/tink-crypto/tink-go/v2 v2.8.0/go.mod h1:aNXZeyxjQU9iqAeARRNmbESXUW6Mao1HRCCTY8B1TFM=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=

@@ -3,7 +3,7 @@ module github.com/arloliu/veq
 go 1.27.1
 
 require (
-	github.com/arloliu/go-secs/tracepack v0.4.0
+	github.com/arloliu/go-secs/tracepack v0.5.1
 	github.com/arloliu/go-secs/v2 v2.6.0
 )
 

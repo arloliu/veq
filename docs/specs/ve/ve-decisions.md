@@ -460,3 +460,16 @@ Entries marked "(also in the tracepack decision log)" are recorded in both logs.
   With the library versions held fixed,
   a test conversion gave the same capture IDs, pack IDs and pack bytes under both versions;
   a real build's IDs still change, because they hash the tracepack version (V-23).
+
+## 2026-10-14 tracepack v0.5.1 (owner)
+
+- V-34 veq pins `github.com/arloliu/go-secs/tracepack` at v0.5.1, which implements specification 2.34 and format 1.1.
+  Format 1.0 and the converter's rules are unchanged from 2.31;
+  the converter's packs hold no feature of format 1.1, so they stay `format_minor` 0 and export as `tracepack-jsonl/1`.
+  `cmd/eapconv` needs no change:
+  it discards the `Continuation` that `Writer.Close` now returns,
+  and no log conversion reaches seq 2^63 − 1, where a capture ends.
+  The module now requires `tink-go`, which only its `redact` package links; no veq package links it.
+  With the library versions held fixed,
+  a test conversion gave the same capture IDs, pack IDs and pack bytes under both versions;
+  a real build's IDs still change, because they hash the tracepack version (V-23).
