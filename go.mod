@@ -1,6 +1,6 @@
-module github.com/arloliu/veq
+module veq
 
-go 1.27.1
+go 1.26.0
 
 require (
 	github.com/arloliu/go-secs/tracepack v0.5.1

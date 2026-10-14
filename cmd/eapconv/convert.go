@@ -19,7 +19,7 @@ import (
 	"github.com/arloliu/go-secs/tracepack"
 	"github.com/arloliu/go-secs/v2/hsms"
 
-	"github.com/arloliu/veq/internal/eapsml"
+	"veq/internal/eapsml"
 )
 
 // dialect names the source dialect and the parser mode (source_dialect).

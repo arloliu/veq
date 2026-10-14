@@ -13,7 +13,7 @@ import (
 
 	"github.com/arloliu/go-secs/v2/secs2"
 
-	"github.com/arloliu/veq/internal/eapsml"
+	"veq/internal/eapsml"
 )
 
 // formatTable records, per tool, device and variable ID, the values returned for it.

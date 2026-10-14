@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arloliu/veq/internal/eapsml"
+	"veq/internal/eapsml"
 )
 
 // toolCatalog accumulates what one tool's log shows for one device.

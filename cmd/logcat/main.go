@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arloliu/veq/internal/eapsml"
+	"veq/internal/eapsml"
 )
 
 func main() {
